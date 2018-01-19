@@ -1,0 +1,9 @@
+bin/
+data/
+*.dat
+*/*.dat
+*.out
+*/*.out
+*.tmp
+*/*.tmp
+jmmOneDMC
