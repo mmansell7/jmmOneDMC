@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "jmmMCState.h"
 
-struct jmmMCState {
+struct MCState {
   
   // Use of typedefs to hide pointers is discouraged. Cease this practice.
   /*

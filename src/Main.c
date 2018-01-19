@@ -50,6 +50,7 @@ luMATRIX indind;
 FILE *cf, *tf;
 char *verStr = "1.0.0";
 char *verDateStr = "01/19/2018";
+struct MCState *mcs;
 
 // For g_i(x) and rho(x), I need...
 int gns;
@@ -88,7 +89,7 @@ void printCoords(FILE *cf, unsigned long int sn, dVECTOR r);
 void printThermo(FILE *tf, unsigned long int *sltpp, unsigned long int sn, double *lAp, double *lSAp, double *EAp, double *ESAp, double *VirAp, double *VirSAp);
 void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,unsigned long int *ns,double * (*phi)(double),double *ms,
 		double *mdl,unsigned long int *cpi,unsigned long int *tpi);
-void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
+struct MCState * setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
 		double *lA, double *lSA,	double *EA, double *ESA, double *VirA, double *VirSA, dVECTOR *r, dVECTOR *rTrial, dVECTOR *rij,
 		dVECTOR *rijTrial, dVECTOR *e6ij, dVECTOR *e6ijTrial, dVECTOR *e12ij, dVECTOR *e12ijTrial, dVECTOR *vir12ij, dVECTOR *vir12ijTrial,
 		dVECTOR *vir6ij, dVECTOR *vir6ijTrial,unsigned long int seed);
@@ -108,7 +109,7 @@ int main (int argc, char *argv[]) {
 	readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
 	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nSeed: %lu\n\n",N,P,T,numSteps,maxStep,seed);
 	fflush(stdout);
-	setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
+	mcs = setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
 			&e6ijTrial,&e12ij,&e12ijTrial,&vir12ij,&vir12ijTrial,&vir6ij,&vir6ijTrial,seed);
 	
 	//fprintf(stdout,"Setup completed\n");
@@ -620,10 +621,11 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 
 }
 
-void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
+struct MCState * setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
 		double *lA, double *lSA,	double *EA, double *ESA, double *VirA, double *VirSA, dVECTOR *r, dVECTOR *rTrial, dVECTOR *rij,
 		dVECTOR *rijTrial, dVECTOR *e6ij, dVECTOR *e6ijTrial, dVECTOR *e12ij, dVECTOR *e12ijTrial, dVECTOR *vir12ij, dVECTOR *vir12ijTrial,
 		dVECTOR *vir6ij, dVECTOR *vir6ijTrial,unsigned long int seed) {
+	struct MCState *mcs;
 
 	unsigned long int ii,jj,dj,ind;
 	char gfstr[20];
@@ -728,7 +730,8 @@ void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng
 	fgrho();
 	ugrho();
 	fflush(stdout);
-
+	
+	return mcs;
 }
 
 void fgrho() {
