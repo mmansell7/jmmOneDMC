@@ -47,6 +47,8 @@ dVECTOR r,rTrial,rij,rijTrial,e12ij,e12ijTrial,e6ij,e6ijTrial,ij,vir6ij,vir6ijTr
 luVECTOR iii,jjj;
 luMATRIX indind;
 FILE *cf, *tf;
+char *verStr = "1.0.0";
+char *verDateStr = "01/19/2018";
 
 // For g_i(x) and rho(x), I need...
 int gns;
@@ -97,6 +99,10 @@ void ugrho();  // Update accumulators
 int main (int argc, char *argv[]) {
 
 //	struct mcState mcs;
+	printf("########################################\n");
+	printf("#       Matt Mansell's MC Code         #\n");
+	printf("#      Version %s : %s      #\n",verStr,verDateStr);
+	printf("########################################\n\n");
 	readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
 	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\n\n",N,P,T,numSteps,maxStep);
 	fflush(stdout);
