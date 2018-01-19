@@ -16,6 +16,7 @@
 #include <time.h>
 #include <gsl/gsl_rng.h>
 #include <math.h>
+#include "jmmMCState.h"
 
 typedef double* dVECTOR;
 typedef dVECTOR* dMATRIX;
