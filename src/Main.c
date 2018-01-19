@@ -89,7 +89,7 @@ void printCoords(FILE *cf, unsigned long int sn, dVECTOR r);
 void printThermo(FILE *tf, unsigned long int *sltpp, unsigned long int sn, double *lAp, double *lSAp, double *EAp, double *ESAp, double *VirAp, double *VirSAp);
 void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,unsigned long int *ns,double * (*phi)(double),double *ms,
 		double *mdl,unsigned long int *cpi,unsigned long int *tpi);
-struct MCState * setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
+void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
 		double *lA, double *lSA,	double *EA, double *ESA, double *VirA, double *VirSA, dVECTOR *r, dVECTOR *rTrial, dVECTOR *rij,
 		dVECTOR *rijTrial, dVECTOR *e6ij, dVECTOR *e6ijTrial, dVECTOR *e12ij, dVECTOR *e12ijTrial, dVECTOR *vir12ij, dVECTOR *vir12ijTrial,
 		dVECTOR *vir6ij, dVECTOR *vir6ijTrial,unsigned long int seed);
@@ -109,7 +109,7 @@ int main (int argc, char *argv[]) {
 	readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
 	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nSeed: %lu\n\n",N,P,T,numSteps,maxStep,seed);
 	fflush(stdout);
-	mcs = setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
+	setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
 			&e6ijTrial,&e12ij,&e12ijTrial,&vir12ij,&vir12ijTrial,&vir6ij,&vir6ijTrial,seed);
 	
 	//fprintf(stdout,"Setup completed\n");
@@ -621,18 +621,18 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 
 }
 
-struct MCState * setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
+void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
 		double *lA, double *lSA,	double *EA, double *ESA, double *VirA, double *VirSA, dVECTOR *r, dVECTOR *rTrial, dVECTOR *rij,
 		dVECTOR *rijTrial, dVECTOR *e6ij, dVECTOR *e6ijTrial, dVECTOR *e12ij, dVECTOR *e12ijTrial, dVECTOR *vir12ij, dVECTOR *vir12ijTrial,
 		dVECTOR *vir6ij, dVECTOR *vir6ijTrial,unsigned long int seed) {
-	struct MCState *mcs;
+	//struct MCState *mcs;
 
 	unsigned long int ii,jj,dj,ind;
 	char gfstr[20];
-
+	
 	*rg = gsl_rng_alloc(gsl_rng_taus2);
 	gsl_rng_set(*rg,seed);
-
+	
 	*cfp = fopen("config.dat","w");
 	*tfp = fopen("thermo.dat","w");
 	fprintf(*tfp,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
@@ -731,7 +731,7 @@ struct MCState * setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double 
 	ugrho();
 	fflush(stdout);
 	
-	return mcs;
+	//return mcs;
 }
 
 void fgrho() {

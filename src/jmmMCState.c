@@ -33,7 +33,10 @@ struct MCState {
   unsigned long int slrho;         // Steps since last rho(r) print
   unsigned long int seed;          // Seed value used whenever a random number generator
                                    //   is seeded or re-seeded
-
+  unsigned long int dAcc[2];       // Array counting the trial moves accepted (dAcc[0]) and
+                                   //   rejected (dAcc[1] )
+  unsigned long int vAcc[2];       // Array counting the trial volume changes accepted
+                                   //   (vAcc[0]) and rejected (vAcc[1])
   double P;                        // Pressure (reduced units)
   double T;                        // Temperature (reduced units)
   double maxStep;                  // Maximum trial displacement length
@@ -129,6 +132,113 @@ struct MCState {
                                    //   for the current g(r) block
   
 };
+
+
+struct MCState * setupMCS() {
+        struct MCState *mcs;
+
+        unsigned long int ii,jj,dj,ind;
+        char gfstr[20];
+
+        mcs->cf = fopen("config.dat","w");
+        mcs->tf = fopen("thermo.dat","w");
+        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
+
+        mcs->slcp       = 0;
+        mcs->sltp       = 0;
+        mcs->lA         = 0;
+        mcs->lSA        = 0;
+        mcs->EA         = 0;
+        mcs->ESA        = 0;
+        mcs->VirA       = 0;
+        mcs->VirSA      = 0;
+
+        mcs->dAcc[0]    = 0;
+        mcs->dAcc[1]    = 0;
+        mcs->vAcc[0]    = 0;
+        mcs->vAcc[1]    = 0;
+
+        mcs->numPairs   = ((mcs->N-1)*mcs->N)/2;
+        mcs->E          = 10E10;
+        mcs->l          = mcs->N;
+        mcs->Vir        = 10E10;
+
+        mcs->r          = (double *) malloc(mcs->N*sizeof(double));
+        mcs->rij        = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
+
+        mcs->rTrial         = (double *) malloc(mcs->N*sizeof(double));
+        mcs->rijTrial       = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
+
+        mcs->iii            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
+        mcs->jjj            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
+        mcs->indind         = (unsigned long int **) malloc((mcs->N-1)*sizeof(unsigned long int *));
+
+        ind = 0;
+        for (ii = 0; ii < mcs->N-1; ii++) {
+                mcs->indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
+                for (jj = ii + 1; jj < mcs->N; jj++) {
+                        dj = jj - ii - 1;
+                        mcs->indind[ii][dj] = ind;
+                        ind++;
+                }
+        }
+
+        mcs->slrho = 0;
+        mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
+        mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
+        mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
+        mcs->rhof = fopen("rho.dat","w");
+        for (ii = 0; ii < mcs->N; ii++) {
+                mcs->rhol[ii] = 0;
+                mcs->rhoA[ii] = 0;
+                mcs->rhoM[ii] = 0;
+        }
+        mcs->slg = 0;
+        mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
+        mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
+        mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
+        mcs->gf = (FILE **) malloc(mcs->gns*sizeof(FILE *));
+        for (ii = 0; ii < mcs->gns; ii++) {
+                mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+                mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+                mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
+                sprintf(gfstr,"g%lu.dat",ii);
+                mcs->gf[ii] = fopen(gfstr,"w");
+                for (jj = 0; jj < mcs->gnb; jj++) {
+                        mcs->gl[ii][jj] = 0;
+                        mcs->gA[ii][jj] = 0;
+                        mcs->gM[ii][jj] = 0;
+                } 
+        }       
+        ind = 0;
+        for (ii = 0; ii < mcs->N; ii++) {
+                mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
+                for (jj = ii+1; jj < mcs->N; jj++) {
+                        mcs->iii[ind] = ii;
+                        mcs->jjj[ind] = jj;
+                        ind++; 
+                }
+        }               
+        for (ind = 0; ind < mcs->numPairs; ind++) {
+                mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
+        }
+        
+        //fgrho();
+        //ugrho();
+        fflush(stdout);
+	
+	return mcs;
+}
+
+
 
 
 
