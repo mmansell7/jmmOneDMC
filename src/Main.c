@@ -53,6 +53,7 @@ char *verDateStr = "01/19/2018";
 // For g_i(x) and rho(x), I need...
 int gns;
 unsigned long int gpi,rhopi,gnb,rhonb,slg,slrho;
+unsigned long int seed;
 double rbw,gsw,gbw;
 FILE *rhof;
 fVECTOR gf;
@@ -89,7 +90,7 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
 		double *lA, double *lSA,	double *EA, double *ESA, double *VirA, double *VirSA, dVECTOR *r, dVECTOR *rTrial, dVECTOR *rij,
 		dVECTOR *rijTrial, dVECTOR *e6ij, dVECTOR *e6ijTrial, dVECTOR *e12ij, dVECTOR *e12ijTrial, dVECTOR *vir12ij, dVECTOR *vir12ijTrial,
-		dVECTOR *vir6ij, dVECTOR *vir6ijTrial);
+		dVECTOR *vir6ij, dVECTOR *vir6ijTrial,unsigned long int seed);
 static gsl_rng * rangen;
 void fagr(FILE *gf, FILE *rhof, struct mcState *mcsp);
 void qagrho(int tid);  // Quick calculation of rho(x) accumulator and g(x) accumulator after displacement
@@ -104,10 +105,11 @@ int main (int argc, char *argv[]) {
 	printf("#      Version %s : %s      #\n",verStr,verDateStr);
 	printf("########################################\n\n");
 	readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
-	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\n\n",N,P,T,numSteps,maxStep);
+	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nSeed: %lu\n\n",N,P,T,numSteps,maxStep,seed);
 	fflush(stdout);
 	setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
-			&e6ijTrial,&e12ij,&e12ijTrial,&vir12ij,&vir12ijTrial,&vir6ij,&vir6ijTrial);
+			&e6ijTrial,&e12ij,&e12ijTrial,&vir12ij,&vir12ijTrial,&vir6ij,&vir6ijTrial,seed);
+	
 	//fprintf(stdout,"Setup completed\n");
 	sn = 0;
 
@@ -581,6 +583,7 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 			15. g(x) bin width
 			16. Number of bins for g(x)
 			17. g(x) print interval
+			18. Seed (suggested use: date +'%s')
 
 		Identified future extensions:
 
@@ -612,19 +615,20 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 	gbw      = (double) strtod(argv[15],NULL);
 	gnb      = (unsigned long int) strtol(argv[16],NULL,10);
 	gpi      = (unsigned long int) strtol(argv[17],NULL,10);
+	seed     = (unsigned long int) strtol(argv[18],NULL,10);
 
 }
 
 void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
 		double *lA, double *lSA,	double *EA, double *ESA, double *VirA, double *VirSA, dVECTOR *r, dVECTOR *rTrial, dVECTOR *rij,
 		dVECTOR *rijTrial, dVECTOR *e6ij, dVECTOR *e6ijTrial, dVECTOR *e12ij, dVECTOR *e12ijTrial, dVECTOR *vir12ij, dVECTOR *vir12ijTrial,
-		dVECTOR *vir6ij, dVECTOR *vir6ijTrial) {
+		dVECTOR *vir6ij, dVECTOR *vir6ijTrial,unsigned long int seed) {
 
 	unsigned long int ii,jj,dj,ind;
 	char gfstr[20];
 
 	*rg = gsl_rng_alloc(gsl_rng_taus2);
-	gsl_rng_set(*rg,(unsigned long int) time(NULL));
+	gsl_rng_set(*rg,seed);
 
 	*cfp = fopen("config.dat","w");
 	*tfp = fopen("thermo.dat","w");
