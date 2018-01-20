@@ -9,4 +9,6 @@ data/
 jmmOneDMC
 *.o
 */*.o
+scripts/errors.*
+scripts/output.*
 

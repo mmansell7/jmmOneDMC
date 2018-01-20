@@ -1,11 +1,11 @@
 #! /bin/csh
-#BSUB -W 96:00
+#BSUB -W 240:00
 #BSUB -n 12
 #BSUB -R span[hosts=1] 
 #BSUB -o output.%J
 #BSUB -e errors.%J
-#BSUB -q single_chassis
-#BSUB -J P0.5_T0.7
+#BSUB -q gubbins
+#BSUB -J P0.1_T0.5
 ##BSUB -L /bin/csh
 
 #setenv OMP_NUM_THREADS 1
@@ -26,26 +26,26 @@ set scratchDir=/scratch/${LSB_JOBID}  #
 
 
 set srcDir=${headDir}/src
-set binDir=${headDir}/Henry2_Debug
+#set OneDNPTMC_srcPath=${srcDir}/Main.c
+set binDir=${headDir}/bin
 mkdir -p ${scratchDir}
-cd ${scratchDir}
-set OneDNPTMC_srcPath=${srcDir}/Main.c
+set exe=jmmOneDMC
 
-set exe=OneDNPTMC
+cd ${scratchDir}
 
 set N=2000
-set PStar=(0.5)
-set TStar=(0.7)
+set PStar=(0.1)
+set TStar=(0.5)
 
 set maxStepSize=(0.1)
 set maxVolChange=5
 
-set numSteps=100000000
+set numSteps=5000000000
 
-set grNumSegs=5
+set grNumSegs=10
 set grSegWidth=200.0
-set grNumBins=100000
-set grBinWidth=0.01
+set grNumBins=40000
+set grBinWidth=0.025
 set grInterval=1000000
 
 set rhoNumBins=250000
@@ -53,13 +53,17 @@ set rhoBinWidth=0.01
 set rhoInterval=1000000
 
 set thermoBlockSize=10000
-set printConfigInterv=100000
-#echo `pwd`
-cp ${OneDNPTMC_srcPath} ${scratchDir}/Main.c
-#echo Compiling a file from ${srcDir}
-echo Compiling ${scratchDir}/Main.c ...
+set printConfigInterv=1000000
+
+cp ${srcDir}/Main.c ${scratchDir}/
+#cp ${srcDir}/jmmMCState.c ${scratchDir}/
+#cp ${srcDir}/jmmMCState.h ${scratchDir}/
+pwd
+ls -hl
+echo Compiling ...
 mpicc -Wall -fopenmp -lgsl -O3 Main.c -o ./${exe}
 echo Compilation completed I think...
+ls -hl
 #cp ${binDir}/${exe} ${scratchDir}/
 
 #foreach ii ( 1 )

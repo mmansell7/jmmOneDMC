@@ -124,7 +124,8 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 	#pragma omp single
 	{
 		printf("Running with %d threads...\n\n",omp_get_num_threads());
-		printf("Step: %lu...\n",sn);
+		mcsPrintStep(mcs);
+		//printf("Step: %lu...\n",sn);
 		fflush(stdout);
 	}
 	fad(N,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir, 5, 0.5);

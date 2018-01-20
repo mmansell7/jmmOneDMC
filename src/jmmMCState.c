@@ -289,6 +289,8 @@ struct MCState * setupMCS(struct MCInput inp) {
 }
 
 
-
+void mcsPrintStep(struct MCState *mcs) {
+	printf("Step: %lu...\n",mcs->sn);
+}
 
 

@@ -1,6 +1,8 @@
 
 struct MCState;
 struct MCState * setupMCS();
+void mcsPrintStep(struct MCState *);
+
 
 struct MCInput {
   
