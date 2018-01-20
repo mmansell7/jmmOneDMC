@@ -76,8 +76,8 @@ void printRho();
 // 7. For gpi, print g
 void printG();
 
-double * phiLJ(double d);
-double * (*phi)(double d);
+double * phiLJ(double *d, void *params);
+double * (*phi)(double *d, void *params);
 void fad(unsigned long int N, unsigned long int np, dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij, dVECTOR e6ijTrial, dVECTOR e12ij, dVECTOR e12ijTrial,
 		dVECTOR vir6ij, dVECTOR vir6ijTrial, dVECTOR vir12ij, dVECTOR vir12ijTrial, double *lp,double *Ep, double *Virp, unsigned long int nm,
 		double rn);  // Full attempt, displacement
@@ -87,7 +87,7 @@ void fav(dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij,
 		dVECTOR vir6ij, dVECTOR vir6ijTrial, dVECTOR vir12ij, dVECTOR vir12ijTrial, double *lp,double *Ep, double *Virp, double rn);  // Full attempt, volume change
 void printCoords(FILE *cf, unsigned long int sn, dVECTOR r);
 void printThermo(FILE *tf, unsigned long int *sltpp, unsigned long int sn, double *lAp, double *lSAp, double *EAp, double *ESAp, double *VirAp, double *VirSAp);
-void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,unsigned long int *ns,double * (*phi)(double),double *ms,
+struct MCInput readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,unsigned long int *ns,double * (*phi)(double *,void *),double *ms,
 		double *mdl,unsigned long int *cpi,unsigned long int *tpi);
 void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,
 		double *lA, double *lSA,	double *EA, double *ESA, double *VirA, double *VirSA, dVECTOR *r, dVECTOR *rTrial, dVECTOR *rij,
@@ -106,13 +106,13 @@ int main (int argc, char *argv[]) {
 	printf("#       Matt Mansell's MC Code         #\n");
 	printf("#      Version %s : %s      #\n",verStr,verDateStr);
 	printf("########################################\n\n");
-	readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
+	struct MCInput inp = readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
 	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nSeed: %lu\n\n",N,P,T,numSteps,maxStep,seed);
 	fflush(stdout);
 	setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
 			&e6ijTrial,&e12ij,&e12ijTrial,&vir12ij,&vir12ijTrial,&vir6ij,&vir6ijTrial,seed);
-	
-	//fprintf(stdout,"Setup completed\n");
+	mcs = setupMCS(inp);
+	fprintf(stdout,"Setup completed\n");
 	sn = 0;
 
 #pragma omp parallel default (shared) \
@@ -314,12 +314,12 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 }
 
 
-double * phiLJ(double d) {
+double * phiLJ(double *d, void *params) {
 	double rij1,rij3,rij6,rij7,rij12,rij13,phi6,phi12,vir6,vir12;
 	double *phi = (double *) malloc(4*sizeof(double));
 	//printf("Check inside ####### d = %lf\n",d);
 
-	rij1 = d;
+	rij1 = *d;
 	rij3 = rij1*rij1*rij1;
 	rij6 = 1/(rij3*rij3);
 	rij7 = rij6/rij1;
@@ -564,7 +564,7 @@ void printThermo(FILE *tf, unsigned long int *sltpp, unsigned long int sn, doubl
 
 }
 
-void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,unsigned long int *ns,double * (*phi)(double),double *ms,
+struct MCInput readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,unsigned long int *ns,double * (*phi)(double*,void*),double *ms,
 		double *mdl,unsigned long int *cpi,unsigned long int *tpi) {
 
 	/*	Read input arguments:
@@ -590,6 +590,9 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 		Identified future extensions:
 
 	*/
+	
+        struct MCInput inp;
+       
 	*N = (unsigned long int) strtol(argv[1],NULL,10);
 	*P = strtod(argv[2],NULL);
 	*T = strtod(argv[3],NULL);
@@ -618,7 +621,26 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 	gnb      = (unsigned long int) strtol(argv[16],NULL,10);
 	gpi      = (unsigned long int) strtol(argv[17],NULL,10);
 	seed     = (unsigned long int) strtol(argv[18],NULL,10);
-
+        
+	inp.N = *N;
+	inp.P = *P;
+	inp.T = *T;
+	inp.ns = *ns;
+	inp.phi = phi;
+	inp.gpi = gpi;
+	inp.maxStep = *ms;
+	inp.maxdl = *mdl;
+	inp.cpi = *cpi;
+	inp.tpi = *tpi;
+	inp.rbw = rbw;
+	inp.rhonb = rhonb;
+	inp.rhopi = rhopi;
+	inp.gsw = gsw;
+	inp.gns = gns;
+	inp.gbw = gbw;
+	inp.gnb = gnb;
+	
+        return inp;
 }
 
 void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng **rg, unsigned long int *slcp, unsigned long int *sltp,

@@ -8,12 +8,12 @@ default:
 	@echo "No target specified."
 
 clean:
-	rm -f *.o ${EXE}
+	rm -f *.o ${EXE} g*.dat rho.dat out.out config.dat thermo.dat
 
 run: ${EXE}
-	./${EXE}
+	./${EXE} 2000 0.5 0.5 2000 lj 0.05 5 100 10 0.01 100000 100 100 5 0.01 100000 100 125 > out.out
 
-henry2 : jmmMCState.o Main.o
+henry2 : Main_henry2 jmmMCState_henry2 jmmMCState.o Main.o
 	${CChen} ${CFLAGShen} Main.o jmmMCState.o -o ./${EXE}
 
 macbook : jmmMCState.o Main.o

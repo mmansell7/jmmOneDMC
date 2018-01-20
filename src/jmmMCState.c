@@ -41,7 +41,7 @@ struct MCState {
   double T;                        // Temperature (reduced units)
   double maxStep;                  // Maximum trial displacement length
   double maxdl;                    // Maximum volume change trial
-  double * (*phi)(double);         // Pointer to the potential function
+  double * (*phi)(double *rij,void *params);         // Pointer to the potential function
   double E;                        // Energy
   double dE;                       // Change in E for current trial
   double ETrial;                   // E for current trial
@@ -134,16 +134,64 @@ struct MCState {
 };
 
 
-struct MCState * setupMCS() {
-        struct MCState *mcs;
+struct MCState * setupMCS(struct MCInput inp) {
+        struct MCState *mcs = (struct MCState *) malloc(sizeof(struct MCState));
 
         unsigned long int ii,jj,dj,ind;
         char gfstr[20];
+        
+        
+        mcs->N          = inp.N;
+	printf("inp.N: %lu...mcs->N: %lu\n",inp.N,mcs->N);
+	fflush(stdout);
+	mcs->P          = inp.P;
+	mcs->T          = inp.T;
+	mcs->sn         = 0;
+        mcs->numSteps   = inp.ns;
+        mcs->cpi        = inp.cpi;
+        mcs->tpi        = inp.tpi;
+	mcs->slcp       = 0;
+	mcs->sltp       = 0;
+	mcs->numPairs   = (unsigned long int) ((double) (mcs->N-1)/2*mcs->N);
+	mcs->nm         = 0;
+	mcs->gpi        = inp.gpi;
+	mcs->rhopi      = inp.rhopi;
+	mcs->gnb        = inp.gnb;
+	mcs->rhonb      = inp.rhonb;
+	mcs->slg        = 0;
+	mcs->slrho      = 0;
+	mcs->seed       = inp.seed;
+	mcs->dAcc[0]    = 0;
+	mcs->dAcc[1]    = 0;
+	mcs->vAcc[0]    = 0;
+	mcs->vAcc[1]    = 0;
+	mcs->maxStep    = inp.maxStep;
+	mcs->maxdl      = inp.maxdl;
+	mcs->phi        = inp.phi;
+	mcs->E          = 10E10;
+	mcs->E6         = -5E10;
+	mcs->E12        = 5E10;
+	mcs->l          = mcs->N;
+	mcs->Vir        = 10E10;
+	mcs->Vir6       = -5E10;
+	mcs->Vir12      = 5E10;
+	mcs->md         = 0;
+	mcs->lA         = 0;
+	mcs->lSA        = 0;
+	mcs->EA         = 0;
+	mcs->ESA        = 0;
+	mcs->VirA       = 0;
+	mcs->VirSA      = 0;
+	mcs->rbw        = inp.rbw;
+	mcs->gsw        = inp.gsw;
+	mcs->gbw        = inp.gbw;
+	mcs->gns        = inp.gns;
 
-        mcs->cf = fopen("config.dat","w");
+
+	mcs->cf = fopen("config.dat","w");
         mcs->tf = fopen("thermo.dat","w");
         fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
-
+	fflush(mcs->tf);
         mcs->slcp       = 0;
         mcs->sltp       = 0;
         mcs->lA         = 0;
@@ -180,10 +228,10 @@ struct MCState * setupMCS() {
         mcs->iii            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
         mcs->jjj            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
         mcs->indind         = (unsigned long int **) malloc((mcs->N-1)*sizeof(unsigned long int *));
-
-        ind = 0;
+        
+	ind = 0;
         for (ii = 0; ii < mcs->N-1; ii++) {
-                mcs->indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
+                (*mcs).indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
                 for (jj = ii + 1; jj < mcs->N; jj++) {
                         dj = jj - ii - 1;
                         mcs->indind[ii][dj] = ind;
@@ -201,6 +249,7 @@ struct MCState * setupMCS() {
                 mcs->rhoA[ii] = 0;
                 mcs->rhoM[ii] = 0;
         }
+        
         mcs->slg = 0;
         mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
         mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
@@ -218,6 +267,7 @@ struct MCState * setupMCS() {
                         mcs->gM[ii][jj] = 0;
                 } 
         }       
+        
         ind = 0;
         for (ii = 0; ii < mcs->N; ii++) {
                 mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
