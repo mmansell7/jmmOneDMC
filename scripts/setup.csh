@@ -1,5 +1,5 @@
 #! /bin/csh
-#BSUB -W 96:00
+#BSUB -W 240:00
 #BSUB -n 12
 #BSUB -R span[hosts=1] 
 #BSUB -o output.%J
@@ -11,6 +11,9 @@
 #setenv OMP_NUM_THREADS 1
 source /usr/local/apps/mpich3/centos7/intelmpi2016.csh
 set headDir=`pwd`/..
+set srcDir=${headDir}/src
+set OneDNPTMC_srcPath=${srcDir}/Main.c
+set exe=jmmOneDMC
 
 
 ##### FOR NON-LSF EXECUTION ############
@@ -24,36 +27,31 @@ set scratchDir=/scratch/${LSB_JOBID}  #
                                        #
 ########################################
 
-
-set srcDir=${headDir}/src
-set binDir=${headDir}/Henry2_Debug
 mkdir -p ${scratchDir}
 cd ${scratchDir}
-set OneDNPTMC_srcPath=${srcDir}/Main.c
 
-set exe=OneDNPTMC
 
 set N=2000
 set PStar=(0.5)
 set TStar=(0.7)
-
+set nbn=(0.2)
 set maxStepSize=(0.1)
 set maxVolChange=5
 
-set numSteps=100000000
+set numSteps=500000000
 
 set grNumSegs=5
 set grSegWidth=200.0
 set grNumBins=100000
 set grBinWidth=0.01
-set grInterval=1000000
+set grInterval=10000000
 
 set rhoNumBins=250000
 set rhoBinWidth=0.01
-set rhoInterval=1000000
+set rhoInterval=10000000
 
 set thermoBlockSize=10000
-set printConfigInterv=100000
+set printConfigInterv=500000
 #echo `pwd`
 cp ${OneDNPTMC_srcPath} ${scratchDir}/Main.c
 #echo Compiling a file from ${srcDir}
@@ -72,7 +70,7 @@ echo Compilation completed I think...
     #echo Submitting simulation for: $N ${lStarBar[${ii}]} ${TStar} ${numSteps} ${thermoBlockSize} ${maxStepSize[${ii}]} ${rcutStar} ${grNumBins} ${grBlockSize} ${printConfigInterv}
     echo Submitting simulation...
     #./${LJexe} $N ${lStarBar[${ii}]} ${TStar} ${numSteps} ${thermoBlockSize} ${maxStepSize[${ii}]} ${rcutStar} ${grNumBins} ${grBlockSize} ${printConfigInterv} > l${lStarBar[${ii}]}_T${TStar}_${LSB_JOBID}.out
-    ./${exe} $N $PStar $TStar ${numSteps} lj ${maxStepSize} ${maxVolChange} ${printConfigInterv} ${thermoBlockSize} ${rhoBinWidth} ${rhoNumBins} ${rhoInterval} ${grSegWidth} ${grNumSegs} ${grBinWidth} ${grNumBins} ${grInterval} > out.out
+    ./${exe} $N $PStar $TStar ${nbn} ${numSteps} lj ${maxStepSize} ${maxVolChange} ${printConfigInterv} ${thermoBlockSize} ${rhoBinWidth} ${rhoNumBins} ${rhoInterval} ${grSegWidth} ${grNumSegs} ${grBinWidth} ${grNumBins} ${grInterval} > out.out
     #./${exe}
     echo ...Simulation completed I think
 
