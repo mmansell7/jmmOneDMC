@@ -107,12 +107,6 @@ int main (int argc, char *argv[]) {
 	printf("#      Version %s : %s      #\n",verStr,verDateStr);
 	printf("########################################\n\n");
 	struct MCInput inp = readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
-	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nmax vol change: %.5G\n",N,P,T,numSteps,maxStep,maxdl);
-	printf("Configuration print interval: %lu\nThermo print interval: %lu\nDensity bin width: %.5G\n",cpi,tpi,rbw);
-	printf("Number of density bins: %lu\nDensity print interval: %lu\ng(x) (or two-particle density) segment width: %.5G\n",rhonb,rhopi,gsw);
-	printf("Number of g(x) segments: %d\ng(x) bin width: %.5G\nNumber of g(x) bins: %lu\n",gns,gbw,gnb);
-	printf("g(x) print interval: %lu\n\nSeed: %lu\n\n",gpi,seed);
-	fflush(stdout);
 	setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
 			&e6ijTrial,&e12ij,&e12ijTrial,&vir12ij,&vir12ijTrial,&vir6ij,&vir6ijTrial,seed);
 	mcs = setupMCS(inp);
@@ -649,6 +643,7 @@ struct MCInput readInput(int argc, char *argv[],unsigned long int *N,double *P,d
 	inp.gns = gns;
 	inp.gbw = gbw;
 	inp.gnb = gnb;
+	inp.seed = seed;
 	
         return inp;
 }

@@ -137,6 +137,17 @@ struct MCState {
   gsl_rng * rangen;                  // Random number generator
 };
 
+int printMCP(struct MCState *mcs1) {
+	printf("Printing Monte Carlo parameters...\n");
+        printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nmax vol change: %.5G\n",mcs1->N,mcs1->P,mcs1->T,mcs1->numSteps,mcs1->maxStep,mcs1->maxdl);
+        printf("Configuration print interval: %lu\nThermo print interval: %lu\nDensity bin width: %.5G\n",mcs1->cpi,mcs1->tpi,mcs1->rbw);
+        printf("Number of density bins: %lu\nDensity print interval: %lu\ng(x) (or two-particle density) segment width: %.5G\n",mcs1->rhonb,mcs1->rhopi,mcs1->gsw);
+        printf("Number of g(x) segments: %d\ng(x) bin width: %.5G\nNumber of g(x) bins: %lu\n",mcs1->gns,mcs1->gbw,mcs1->gnb);
+        printf("g(x) print interval: %lu\n\nSeed: %lu\n\n",mcs1->gpi,mcs1->seed);
+        fflush(stdout);
+	
+	return 0;
+}	
 
 struct MCState * setupMCS(struct MCInput inp) {
         struct MCState *mcs = (struct MCState *) malloc(sizeof(struct MCState));
@@ -144,10 +155,8 @@ struct MCState * setupMCS(struct MCInput inp) {
         unsigned long int ii,jj,dj,ind;
         char gfstr[20];
         
-        
         mcs->N          = inp.N;
-	printf("inp.N: %lu...mcs->N: %lu\n",inp.N,mcs->N);
-	fflush(stdout);
+	
 	mcs->P          = inp.P;
 	mcs->T          = inp.T;
 	mcs->sn         = 0;
@@ -162,16 +171,23 @@ struct MCState * setupMCS(struct MCInput inp) {
 	mcs->rhopi      = inp.rhopi;
 	mcs->gnb        = inp.gnb;
 	mcs->rhonb      = inp.rhonb;
+	mcs->maxStep    = inp.maxStep;
+	mcs->maxdl      = inp.maxdl;
+	mcs->phi        = inp.phi;
 	mcs->slg        = 0;
 	mcs->slrho      = 0;
+	mcs->rbw        = inp.rbw;
+	mcs->gsw        = inp.gsw;
+	mcs->gbw        = inp.gbw;
+	mcs->gns        = inp.gns;
 	mcs->seed       = inp.seed;
+
+	printMCP(mcs);
+	
 	mcs->dAcc[0]    = 0;
 	mcs->dAcc[1]    = 0;
 	mcs->vAcc[0]    = 0;
 	mcs->vAcc[1]    = 0;
-	mcs->maxStep    = inp.maxStep;
-	mcs->maxdl      = inp.maxdl;
-	mcs->phi        = inp.phi;
 	mcs->E          = 10E10;
 	mcs->E6         = -5E10;
 	mcs->E12        = 5E10;
@@ -186,17 +202,14 @@ struct MCState * setupMCS(struct MCInput inp) {
 	mcs->ESA        = 0;
 	mcs->VirA       = 0;
 	mcs->VirSA      = 0;
-	mcs->rbw        = inp.rbw;
-	mcs->gsw        = inp.gsw;
-	mcs->gbw        = inp.gbw;
-	mcs->gns        = inp.gns;
 
 
 	mcs->cf = fopen("config.dat","w");
         mcs->tf = fopen("thermo.dat","w");
         fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
 	fflush(mcs->tf);
-        mcs->slcp       = 0;
+        
+	mcs->slcp       = 0;
         mcs->sltp       = 0;
         mcs->lA         = 0;
         mcs->lSA        = 0;

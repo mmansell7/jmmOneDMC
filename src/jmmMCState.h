@@ -3,6 +3,7 @@ struct MCState;
 struct MCState * setupMCS();
 void mcsPrintStep(struct MCState *);
 void mcs_fad(struct MCState *,unsigned long int *, double *);
+int printMCP(struct MCState *mcs1);
 
 struct MCInput {
   
