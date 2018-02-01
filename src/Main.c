@@ -117,7 +117,7 @@ int main (int argc, char *argv[]) {
 
 #pragma omp parallel default (shared) \
 private(tid,rij1,rij3,rij6,rij7,rij12,rij13) \
-shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vir12ij,lA,lSA,EA,ESA,nm,rndm)
+shared(mcs,E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vir12ij,lA,lSA,EA,ESA,nm,rndm)
 {
 	tid = omp_get_thread_num();
 
@@ -129,6 +129,9 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 		fflush(stdout);
 	}
 	fad(N,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir, 5, 0.5);
+	unsigned long int ddd = 5;
+	double nnn = 0.5;
+	mcs_fad(mcs,&ddd,&nnn);
 	
 	#pragma omp single
 	{
@@ -195,6 +198,8 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 				//ind = 0;
 				//for (ii = 0; ii < N - 1; ii++) {
 				//	for (jj = ii + 1; jj < N; jj++) {
+						//fprintf(tf,"indind[%lu][%lu] = %lu\n",ii,jj,indind[ii][jj]);
+						//ind++;
 						//fprintf(tf,"indind[%lu][%lu] = %lu\n",ii,jj,indind[ii][jj]);
 						//ind++;
 				//	}

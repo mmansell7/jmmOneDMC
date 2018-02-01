@@ -1,5 +1,8 @@
 #include <stdio.h>
+#include <gsl/gsl_rng.h>
 #include "jmmMCState.h"
+
+double mcsE6Trial, mcsE12Trial, mcsVir6Trial, mcsVir12Trial;
 
 struct MCState {
   
@@ -67,6 +70,7 @@ struct MCState {
   double dVir12;                   // Change in Vir12 for the current trial
 
   double md;                       // Move distance for current trial displacement
+  double rn;                       // Random number used to set md or dl
   double dl;                       // Length change for current trial displacement
   double bf;                       // Boltzmann factor for current trial
   double lA;                       // l accumulator
@@ -130,7 +134,7 @@ struct MCState {
                                    //   segment and bin of g(r) for the current g(r) block.
   double **gM;                     // Two-dimensional array with mean g(r) in each segment and bin
                                    //   for the current g(r) block
-  
+  gsl_rng * rangen;                  // Random number generator
 };
 
 
@@ -283,6 +287,9 @@ struct MCState * setupMCS(struct MCInput inp) {
         
         //fgrho();
         //ugrho();
+
+	mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
+	gsl_rng_set(mcs->rangen,mcs->seed);
         fflush(stdout);
 	
 	return mcs;
@@ -293,4 +300,135 @@ void mcsPrintStep(struct MCState *mcs) {
 	printf("Step: %lu...\n",mcs->sn);
 }
 
+
+void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
+	// Full attempt, displacement
+	unsigned long int ii,jj,ind;
+	double rij1,rij3,rij6,rij7,rij12,rij13,ran;
+	
+	
+
+	#pragma omp single
+	{
+	if ( nm == NULL) {
+		mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->N);
+	}
+	else {
+		mcs->nm = *nm;
+	}
+	if ( d == NULL ) {
+		mcs->rn = gsl_rng_uniform(mcs->rangen);
+	}
+	else {
+		mcs->rn = *d;
+	}
+
+	for (ind = 0; ind < mcs->N; ind++) {
+		mcs->rTrial[ind] = mcs->r[ind];
+	}
+	for (ind = 0; ind < mcs->numPairs; ind++) {
+		mcs->rijTrial[ind] = mcs->rij[ind];
+	}
+
+	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
+	//fprintf(stdout,"Attempting to move particle %lu by %lf...",nm,md);
+	mcs->rTrial[mcs->nm] = mcs->r[mcs->nm] + mcs->md;
+	mcs->E6Trial = 0;
+	mcs->E12Trial = 0;
+	mcs->ETrial = 0;
+	mcs->Vir6Trial = 0;
+	mcs->Vir12Trial = 0;
+	mcs->VirTrial = 0;
+//	printf("Particle to move: %lu,  Move distance: %.5f...",nm,md);
+	if (fabs(mcs->rTrial[mcs->nm]) > (mcs->l/2.0)) {
+		mcs->bndchk = 1;
+		//printf("Wall collision. Displacement rejected\n");
+		mcs->dAcc[1]++;
+	}
+	else {
+		mcs->bndchk = 0;
+	}
+	fflush(stdout);
+	}
+	
+	mcsE6Trial     = mcs->E6Trial;
+	mcsE12Trial    = mcs->E12Trial;
+	mcsVir6Trial   = mcs->Vir6Trial;
+	mcsVir12Trial  = mcs->Vir12Trial;
+	
+	if (mcs->bndchk == 0) {
+		#pragma omp for private(ii,jj,ind,rij1,rij3,rij6,rij7,rij12,rij13) \
+				reduction(+:mcsE6Trial,mcsE12Trial,mcsVir6Trial,mcsVir12Trial)
+		for (ind = 0; ind < mcs->numPairs; ind++) {
+			ii            = mcs->iii[ind];
+			jj            = mcs->jjj[ind];
+			mcs->rijTrial[ind] = mcs->rTrial[jj] - mcs->rTrial[ii];
+//			printf("ii,jj,rij = %lu,%lu, %.5G\n",ii,jj,rijTrial[ind]);
+			rij1          = mcs->rijTrial[ind];
+			rij3          = rij1*rij1*rij1;
+			rij6          = 1/(rij3*rij3);
+			rij7          = rij6/rij1;
+			rij12         = rij6*rij6;
+			rij13         = rij12/rij1;
+
+			mcs->e6ijTrial[ind]     = 4*rij6;
+			mcs->e12ijTrial[ind]    = 4*rij12;
+			mcs->vir6ijTrial[ind]   = 24/mcs->l*rij6;
+			mcs->vir12ijTrial[ind]  = 48/mcs->l*rij12;
+			
+			mcsE6Trial     += mcs->e6ijTrial[ind];
+			mcsE12Trial    += mcs->e12ijTrial[ind];
+			mcsVir6Trial   += mcs->vir6ijTrial[ind];
+			mcsVir12Trial  += mcs->vir12ijTrial[ind];
+//			printf("ind,ii,jj,rijTrial,e6Trial,e12Trial,ETrial = %lu,%lu,%lu, %.5G, %.5G, %.5G, %.5G\n",ind,ii,jj,rijTrial[ind],e6ijTrial[ind],e12ijTrial[ind],ETrial);
+
+		}
+//		printf("Done with for loop\n");
+		
+	mcs->E6Trial     = mcsE6Trial;
+	mcs->E12Trial    = mcsE12Trial;
+	mcs->Vir6Trial   = mcsVir6Trial;
+	mcs->Vir12Trial  = mcsVir12Trial;
+		
+		
+		#pragma omp single
+		{
+		mcs->ETrial = mcs->E12Trial - mcs->E6Trial;
+
+		if (mcs->ETrial > mcs->E ) {
+//			printf("ETrial: %lf...*Ep: %.5G...",ETrial,*Ep);
+			ran = gsl_rng_uniform(mcs->rangen);
+			mcs->bf = exp((mcs->E-mcs->ETrial)/mcs->T);
+		}
+
+		if (mcs->ETrial < mcs->E || mcs->bf > ran) {
+			//printf("Displacement accepted...E = %.8G\n",ETrial);
+			mcs->dAcc[0]++;
+			mcs->E     = mcs->ETrial;
+			mcs->E6    = mcs->E6Trial;
+			mcs->E12   = mcs->E12Trial;
+			mcs->Vir6  = mcs->Vir6Trial;
+			mcs->Vir12 = mcs->Vir12Trial;
+			mcs->Vir = mcs->N*mcs->T/mcs->l + mcs->Vir12 - mcs->Vir6;
+			mcs->r[mcs->nm] = mcs->rTrial[mcs->nm];
+			fflush(stdout);
+			for (ind = 0; ind < mcs->numPairs; ind++) {
+				mcs->rij[ind]     = mcs->rijTrial[ind];
+				mcs->e6ij[ind]    = mcs->e6ijTrial[ind];
+				mcs->e12ij[ind]   = mcs->e12ijTrial[ind];
+				mcs->vir6ij[ind]  = mcs->vir6ijTrial[ind];
+				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+			}
+		}
+		else {
+			//printf("Displacement rejected\n");
+			mcs->dAcc[1]++;
+		}
+		//printf("Check 9...Thread no.: %d\n",omp_get_thread_num());
+		}
+	}
+	//printf("Exiting fad...Thread no.: %d\n",omp_get_thread_num());
+	fflush(stdout);
+	#pragma omp barrier
+}
 

@@ -2,7 +2,7 @@
 struct MCState;
 struct MCState * setupMCS();
 void mcsPrintStep(struct MCState *);
-
+void mcs_fad(struct MCState *,unsigned long int *, double *);
 
 struct MCInput {
   
