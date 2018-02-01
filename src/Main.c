@@ -659,6 +659,7 @@ struct MCInput readInput(int argc, char *argv[],unsigned long int *N,double *P,d
 	inp.N = *N;
 	inp.P = *P;
 	inp.T = *T;
+	inp.nbn = nbn;
 	inp.ns = *ns;
 	inp.phi = phi;
 	inp.gpi = gpi;

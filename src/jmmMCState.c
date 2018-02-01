@@ -19,6 +19,8 @@ struct MCState {
 
 
   unsigned long int N;             // Number of particles
+  int nbn;                         // Number of neighbors with which each particle can
+                                   //   interact.  -1 for no limit.
   unsigned long int sn;            // Step number
   unsigned long int numSteps;      // Number of steps (total steps requested)
   unsigned long int cpi;           // Configuration print interval
@@ -139,7 +141,8 @@ struct MCState {
 
 int printMCP(struct MCState *mcs1) {
 	printf("Printing Monte Carlo parameters...\n");
-        printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nmax vol change: %.5G\n",mcs1->N,mcs1->P,mcs1->T,mcs1->numSteps,mcs1->maxStep,mcs1->maxdl);
+        printf("N: %lu\nP: %.5G\nT: %.5G\nNumber of neighbors with which each particle can interact: %d\n",mcs1->N,mcs1->P,mcs1->T,mcs1->nbn);
+	printf("numSteps: %lu\nmaxStep: %.5G\nmax vol change: %.5G\n",mcs1->numSteps,mcs1->maxStep,mcs1->maxdl);
         printf("Configuration print interval: %lu\nThermo print interval: %lu\nDensity bin width: %.5G\n",mcs1->cpi,mcs1->tpi,mcs1->rbw);
         printf("Number of density bins: %lu\nDensity print interval: %lu\ng(x) (or two-particle density) segment width: %.5G\n",mcs1->rhonb,mcs1->rhopi,mcs1->gsw);
         printf("Number of g(x) segments: %d\ng(x) bin width: %.5G\nNumber of g(x) bins: %lu\n",mcs1->gns,mcs1->gbw,mcs1->gnb);
@@ -156,9 +159,9 @@ struct MCState * setupMCS(struct MCInput inp) {
         char gfstr[20];
         
         mcs->N          = inp.N;
-	
 	mcs->P          = inp.P;
 	mcs->T          = inp.T;
+	mcs->nbn        = inp.nbn;
 	mcs->sn         = 0;
         mcs->numSteps   = inp.ns;
         mcs->cpi        = inp.cpi;
@@ -377,31 +380,39 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			jj            = mcs->jjj[ind];
 			mcs->rijTrial[ind] = mcs->rTrial[jj] - mcs->rTrial[ii];
 //			printf("ii,jj,rij = %lu,%lu, %.5G\n",ii,jj,rijTrial[ind]);
-			rij1          = mcs->rijTrial[ind];
-			rij3          = rij1*rij1*rij1;
-			rij6          = 1/(rij3*rij3);
-			rij7          = rij6/rij1;
-			rij12         = rij6*rij6;
-			rij13         = rij12/rij1;
-
-			mcs->e6ijTrial[ind]     = 4*rij6;
-			mcs->e12ijTrial[ind]    = 4*rij12;
-			mcs->vir6ijTrial[ind]   = 24/mcs->l*rij6;
-			mcs->vir12ijTrial[ind]  = 48/mcs->l*rij12;
+			if (mcs->nbn >= 0 && jj-ii <= mcs->nbn) {
+				mcs->e6ijTrial[ind]     = 0;
+				mcs->e12ijTrial[ind]    = 0;
+				mcs->vir6ijTrial[ind]   = 0;
+				mcs->vir12ijTrial[ind]  = 0;	
+			}
+			else {
+				rij1          = mcs->rijTrial[ind];
+				rij3          = rij1*rij1*rij1;
+				rij6          = 1/(rij3*rij3);
+				rij7          = rij6/rij1;
+				rij12         = rij6*rij6;
+				rij13         = rij12/rij1;
+	
+				mcs->e6ijTrial[ind]     = 4*rij6;
+				mcs->e12ijTrial[ind]    = 4*rij12;
+				mcs->vir6ijTrial[ind]   = 24/mcs->l*rij6;
+				mcs->vir12ijTrial[ind]  = 48/mcs->l*rij12;
 			
-			mcsE6Trial     += mcs->e6ijTrial[ind];
-			mcsE12Trial    += mcs->e12ijTrial[ind];
-			mcsVir6Trial   += mcs->vir6ijTrial[ind];
-			mcsVir12Trial  += mcs->vir12ijTrial[ind];
+				mcsE6Trial     += mcs->e6ijTrial[ind];
+				mcsE12Trial    += mcs->e12ijTrial[ind];
+				mcsVir6Trial   += mcs->vir6ijTrial[ind];
+				mcsVir12Trial  += mcs->vir12ijTrial[ind];
+			}
 //			printf("ind,ii,jj,rijTrial,e6Trial,e12Trial,ETrial = %lu,%lu,%lu, %.5G, %.5G, %.5G, %.5G\n",ind,ii,jj,rijTrial[ind],e6ijTrial[ind],e12ijTrial[ind],ETrial);
 
 		}
 //		printf("Done with for loop\n");
 		
-	mcs->E6Trial     = mcsE6Trial;
-	mcs->E12Trial    = mcsE12Trial;
-	mcs->Vir6Trial   = mcsVir6Trial;
-	mcs->Vir12Trial  = mcsVir12Trial;
+		mcs->E6Trial     = mcsE6Trial;
+		mcs->E12Trial    = mcsE12Trial;
+		mcs->Vir6Trial   = mcsVir6Trial;
+		mcs->Vir12Trial  = mcsVir12Trial;
 		
 		
 		#pragma omp single

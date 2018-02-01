@@ -25,7 +25,7 @@ struct MCInput {
   double gsw;
   double gbw;
   int gns;
-  
+  int nbn;
 };
 
 
