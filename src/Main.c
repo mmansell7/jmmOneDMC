@@ -36,7 +36,7 @@ struct mcState {
 	double *lp,*Ep,*Virp;
 };
 
-int tid,bndchk;
+int tid,bndchk,nbn;  // nbn is the "neighbor number", or any negative int to indicate no neighbor limit
 unsigned long int stepNum,cpi,tpi,slcp,sltp;
 unsigned long int N,numPairs,numSteps,sn; // sn = "step number"
 unsigned long int ind,ii,jj,dj,nm,dAcc[2],vAcc[2];
@@ -76,7 +76,7 @@ void printG();
 
 double * phiLJ(double d);
 double * (*phi)(double d);
-void fad(unsigned long int N, unsigned long int np, dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij, dVECTOR e6ijTrial, dVECTOR e12ij, dVECTOR e12ijTrial,
+void fad(unsigned long int N, int nbn, unsigned long int np, dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij, dVECTOR e6ijTrial, dVECTOR e12ij, dVECTOR e12ijTrial,
 		dVECTOR vir6ij, dVECTOR vir6ijTrial, dVECTOR vir12ij, dVECTOR vir12ijTrial, double *lp,double *Ep, double *Virp, unsigned long int nm,
 		double rn);  // Full attempt, displacement
 void qad();  // Quick attempt at displacement
@@ -105,7 +105,7 @@ int main (int argc, char *argv[]) {
 	printf("#      Version %s : %s      #\n",verStr,verDateStr);
 	printf("########################################\n\n");
 	readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
-	printf("N: %lu\nP: %.5G\nT: %.5G\nnumSteps: %lu\nmaxStep: %.5G\nmax vol change: %.5G\n",N,P,T,numSteps,maxStep,maxdl);
+	printf("N: %lu\nP: %.5G\nT: %.5G\nInteractions limited to the nearest %d neighbors\nnumSteps: %lu\nmaxStep: %.5G\nmax vol change: %.5G\n",N,P,T,nbn,numSteps,maxStep,maxdl);
 	printf("Configuration print interval: %lu\nThermo print interval: %lu\nDensity bin width: %.5G\n",cpi,tpi,rbw);
 	printf("Number of density bins: %lu\nDensity print interval: %lu\ng(x) (or two-particle density) segment width: %.5G\n",rhonb,rhopi,gsw);
 	printf("Number of g(x) segments: %d\ng(x) bin width: %.5G\nNumber of g(x) bins: %lu\n",gns,gbw,gnb);
@@ -119,7 +119,7 @@ int main (int argc, char *argv[]) {
 
 #pragma omp parallel default (shared) \
 private(tid,rij1,rij3,rij6,rij7,rij12,rij13) \
-shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vir12ij,lA,lSA,EA,ESA,nm,rndm)
+shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vir12ij,lA,lSA,EA,ESA,nm,rndm,nbn)
 {
 	tid = omp_get_thread_num();
 
@@ -129,7 +129,7 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 		printf("Step: %lu...\n",sn);
 		fflush(stdout);
 	}
-	fad(N,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir, 5, 0.5);
+	fad(N,nbn,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir, 5, 0.5);
 	
 	#pragma omp single
 	{
@@ -161,11 +161,16 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 		if (nm < N) {
 			qad();
 			//fprintf(rhof,"nm: %lu, md: %.5G\n",nm,md);
-			//fad(N,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir,nm,rndm);
+			//fad(N,nbn,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir,nm,rndm);
 			}
 		else {
 			//fav(r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir,   rndm);
-			qav();
+			if (nbn >= 0 ) {
+				qav();
+			}
+			else {
+				fad(N,nbn,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir,nm,rndm);
+			}
 		}
 
 		//fgrho();
@@ -259,13 +264,19 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 					jj = jjj[iq];
 					
 					rijTrial[iq] = r[jj] - r[ii];
-					rij1 = rijTrial[iq];
-					rij3 = rij1*rij1*rij1;
-					rij6 = 1/(rij3*rij3);
-					rij12 = rij6*rij6;
-					e12ijTrial[iq] = 4*rij12;
-					e6ijTrial[iq] = 4*rij6;
-					ETrial += e12ijTrial[iq] - e6ijTrial[iq];
+					if (nbn >= 0 && jj-ii > nbn) {
+						e12ijTrial[iq] = 0;
+						e6ijTrial[iq]  = 0;
+					}
+					else {
+						rij1 = rijTrial[iq];
+						rij3 = rij1*rij1*rij1;
+						rij6 = 1/(rij3*rij3);
+						rij12 = rij6*rij6;
+						e12ijTrial[iq] = 4*rij12;
+						e6ijTrial[iq] = 4*rij6;
+						ETrial += e12ijTrial[iq] - e6ijTrial[iq];
+					}
 					//fprintf(stdout,"iq = %lu\n",iq);
 					//fflush(stdout);
 					//iq++;
@@ -340,7 +351,7 @@ double * phiLJ(double d) {
 	return phi;
 }
 
-void fad(unsigned long int N, unsigned long int np, dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial,
+void fad(unsigned long int N, int nbn, unsigned long int np, dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial,
 		dVECTOR e6ij, dVECTOR e6ijTrial, dVECTOR e12ij, dVECTOR e12ijTrial, dVECTOR vir6ij, dVECTOR vir6ijTrial, dVECTOR vir12ij,
 		dVECTOR vir12ijTrial, double *lp,double *Ep, double *Virp, unsigned long int nm, double rn) {
 	// Full attempt, displacement
@@ -384,25 +395,33 @@ void fad(unsigned long int N, unsigned long int np, dVECTOR r, dVECTOR rTrial, d
 			ii            = iii[ind];
 			jj            = jjj[ind];
 			rijTrial[ind] = rTrial[jj] - rTrial[ii];
-//			printf("ii,jj,rij = %lu,%lu, %.5G\n",ii,jj,rijTrial[ind]);
-			rij1          = rijTrial[ind];
-			rij3          = rij1*rij1*rij1;
-			rij6          = 1/(rij3*rij3);
-			rij7          = rij6/rij1;
-			rij12         = rij6*rij6;
-			rij13         = rij12/rij1;
+			if ( nbn >= 0 && jj-ii > nbn) {
+				e6ijTrial[ind]     = 0;
+				e12ijTrial[ind]    = 0;
+				vir6ijTrial[ind]   = 0;
+				vir12ijTrial[ind]  = 0;
+			}
+			else {
+//				printf("ii,jj,rij = %lu,%lu, %.5G\n",ii,jj,rijTrial[ind]);
+				rij1          = rijTrial[ind];
+				rij3          = rij1*rij1*rij1;
+				rij6          = 1/(rij3*rij3);
+				rij7          = rij6/rij1;
+				rij12         = rij6*rij6;
+				rij13         = rij12/rij1;
+	
+				e6ijTrial[ind]     = 4*rij6;
+				e12ijTrial[ind]    = 4*rij12;
+				vir6ijTrial[ind]   = 24/l*rij6;
+				vir12ijTrial[ind]  = 48/l*rij12;
+				
+				E6Trial     += e6ijTrial[ind];
+				E12Trial    += e12ijTrial[ind];
+				Vir6Trial   += vir6ijTrial[ind];
+				Vir12Trial  += vir12ijTrial[ind];
+//				printf("ind,ii,jj,rijTrial,e6Trial,e12Trial,ETrial = %lu,%lu,%lu, %.5G, %.5G, %.5G, %.5G\n",ind,ii,jj,rijTrial[ind],e6ijTrial[ind],e12ijTrial[ind],ETrial);
 
-			e6ijTrial[ind]     = 4*rij6;
-			e12ijTrial[ind]    = 4*rij12;
-			vir6ijTrial[ind]   = 24/l*rij6;
-			vir12ijTrial[ind]  = 48/l*rij12;
-			
-			E6Trial     += e6ijTrial[ind];
-			E12Trial    += e12ijTrial[ind];
-			Vir6Trial   += vir6ijTrial[ind];
-			Vir12Trial  += vir12ijTrial[ind];
-//			printf("ind,ii,jj,rijTrial,e6Trial,e12Trial,ETrial = %lu,%lu,%lu, %.5G, %.5G, %.5G, %.5G\n",ind,ii,jj,rijTrial[ind],e6ijTrial[ind],e12ijTrial[ind],ETrial);
-
+			}
 		}
 //		printf("Done with for loop\n");
 
@@ -476,23 +495,31 @@ void fav(dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij,
 //		printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
 
 		rij1a          = rTrial[jj] - rTrial[ii];
-
-//		printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
-
-		rij3a          = rij1a*rij1a*rij1a;
-		rij6a          = 1/(rij3a*rij3a);
-		rij7a          = rij6a/rij1a;
-		rij12a         = rij6a*rij6a;
-		rij13a         = rij12a/rij1a;
-
-		e6ijTrial[ind]     = 4*rij6a;
-		e12ijTrial[ind]    = 4*rij12a;
-		vir6ijTrial[ind]     = 24/l*rij6a;
-		vir12ijTrial[ind]    = 48/l*rij12a;
-//		printf("ii,jj,rij1,rij6,e6 = %lu,%lu, %.5G, %.5G, %.5G\n",ii,jj,rij[ind],rij6a,e6ij[ind]);
-
-		ETrial            += e12ijTrial[ind] - e6ijTrial[ind];
-		VirTrial          += vir12ijTrial[ind] - vir6ijTrial[ind];
+		if ( nbn >= 0 && jj-ii > nbn) {
+//			printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
+			e6ijTrial[ind]       = 0;
+			e12ijTrial[ind]      = 0;
+			vir6ijTrial[ind]     = 0;
+			vir12ijTrial[ind]    = 0;
+//			printf("ii,jj,rij1,rij6,e6 = %lu,%lu, %.5G, %.5G, %.5G\n",ii,jj,rij[ind],rij6a,e6ij[ind]);
+		}
+		else {
+//			printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
+			rij3a          = rij1a*rij1a*rij1a;
+			rij6a          = 1/(rij3a*rij3a);
+			rij7a          = rij6a/rij1a;
+			rij12a         = rij6a*rij6a;
+			rij13a         = rij12a/rij1a;
+	
+			e6ijTrial[ind]     = 4*rij6a;
+			e12ijTrial[ind]    = 4*rij12a;
+			vir6ijTrial[ind]     = 24/l*rij6a;
+			vir12ijTrial[ind]    = 48/l*rij12a;
+//			printf("ii,jj,rij1,rij6,e6 = %lu,%lu, %.5G, %.5G, %.5G\n",ii,jj,rij[ind],rij6a,e6ij[ind]);
+	
+			ETrial            += e12ijTrial[ind] - e6ijTrial[ind];
+			VirTrial          += vir12ijTrial[ind] - vir6ijTrial[ind];
+		}
 	}
 
 	#pragma omp single
@@ -515,7 +542,7 @@ void fav(dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij,
 			r[ind] = rTrial[ind];
 		}
 		for (ind = 0; ind < numPairs; ind++) {
-			rij[ind] = rijTrial[ind];
+			rij[ind] = lRat1*rijTrial[ind];
 			e6ij[ind] = e6ijTrial[ind];
 			e12ij[ind] = e12ijTrial[ind];
 			vir6ij[ind] = vir6ijTrial[ind];
@@ -573,53 +600,55 @@ void readInput(int argc, char *argv[],unsigned long int *N,double *P,double *T,u
 			1.  Number of Particles
 			2.  Pressure
 			3.  Temperature
-			4.  Number of trial steps
-			5.  Potential type
-			6.  Maximum particle displacement
-			7.  Maximum box length change
-			8.  Configuration print interval
-			9.  Thermo print interval
-			10. Rho bin width
-			11. Number of bins for rho
-			12. Rho print interval
-			13. g(x) segment width
-			14. Number of segments for g(x)
-			15. g(x) bin width
-			16. Number of bins for g(x)
-			17. g(x) print interval
-			18. Seed (suggested use: date +'%s')
+			4.  Neighbor number limit
+			5.  Number of trial steps
+			6.  Potential type
+			7.  Maximum particle displacement
+			8.  Maximum box length change
+			9.  Configuration print interval
+			10. Thermo print interval
+			11. Rho bin width
+			12. Number of bins for rho
+			13. Rho print interval
+			14. g(x) segment width
+			15. Number of segments for g(x)
+			16. g(x) bin width
+			17. Number of bins for g(x)
+			18. g(x) print interval
+			19. Seed (suggested use: date +'%s')
 
 		Identified future extensions:
 
 	*/
-	*N = (unsigned long int) strtol(argv[1],NULL,10);
-	*P = strtod(argv[2],NULL);
-	*T = strtod(argv[3],NULL);
-	*ns = (unsigned long int) strtol(argv[4],NULL,10);
-	if (strcmp(argv[5],"lj") == 0) {
+	*N       = (unsigned long int) strtol(argv[1],NULL,10);
+	*P       = strtod(argv[2],NULL);
+	*T       = strtod(argv[3],NULL);
+	nbn      = (int) strtol(argv[4],NULL,10); 
+	*ns      = (unsigned long int) strtol(argv[5],NULL,10);
+	if (strcmp(argv[6],"lj") == 0) {
 		printf("Using Lennard-Jones potential\n");
 		phi = phiLJ;
 	}
 	else {
-		printf("Unknown potential type requested (%s). Using Lennard-Jones potential.\n",argv[5]);
+		printf("Unknown potential type requested (%s). Using Lennard-Jones potential.\n",argv[6]);
 		phi = phiLJ;
 	}
 
-	*ms      = (double) strtod(argv[6],NULL);
-	*mdl     = (double) strtod(argv[7],NULL);
-	*cpi     = (unsigned long int) strtol(argv[8],NULL,10);
-	*tpi     = (unsigned long int) strtol(argv[9],NULL,10);
+	*ms      = (double) strtod(argv[7],NULL);
+	*mdl     = (double) strtod(argv[8],NULL);
+	*cpi     = (unsigned long int) strtol(argv[9],NULL,10);
+	*tpi     = (unsigned long int) strtol(argv[10],NULL,10);
 
-	rbw      = (double) strtod(argv[10],NULL);
-	rhonb    = (unsigned long int) strtol(argv[11],NULL,10);
-	rhopi    = (unsigned long int) strtol(argv[12],NULL,10);
+	rbw      = (double) strtod(argv[11],NULL);
+	rhonb    = (unsigned long int) strtol(argv[12],NULL,10);
+	rhopi    = (unsigned long int) strtol(argv[13],NULL,10);
 
-	gsw      = (double) strtod(argv[13],NULL);
-	gns      = (int) strtol(argv[14],NULL,10);
-	gbw      = (double) strtod(argv[15],NULL);
-	gnb      = (unsigned long int) strtol(argv[16],NULL,10);
-	gpi      = (unsigned long int) strtol(argv[17],NULL,10);
-	seed     = (unsigned long int) strtol(argv[18],NULL,10);
+	gsw      = (double) strtod(argv[14],NULL);
+	gns      = (int) strtol(argv[15],NULL,10);
+	gbw      = (double) strtod(argv[16],NULL);
+	gnb      = (unsigned long int) strtol(argv[17],NULL,10);
+	gpi      = (unsigned long int) strtol(argv[18],NULL,10);
+	seed     = (unsigned long int) strtol(argv[19],NULL,10);
 
 }
 
@@ -1008,23 +1037,32 @@ void qad() {
 			dj = nm - ii - 1;
 			ind = indind[ii][dj];
 			rijTrial[ind] = rij[ind] + md;
-			rij1 = rijTrial[ind];
-			rij3 = rij1*rij1*rij1;
-			rij6 = 1/(rij3*rij3);
-			rij7 = rij6/rij1;
-			rij12 = rij6*rij6;
-			rij13 = rij12/rij1;
-			e6ijTrial[ind] = 4*rij6;
-			e12ijTrial[ind] = 4*rij12;
-			vir6ijTrial[ind] = 24/l*rij6;
-			vir12ijTrial[ind] = 48/l*rij12;
-			//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			if ( nbn >= 0 && dj >= nbn ) {
+				e6ijTrial[ind] = 0;
+				e12ijTrial[ind] = 0;
+				vir6ijTrial[ind] = 0;
+				vir12ijTrial[ind] = 0;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
+			else {
+				rij1 = rijTrial[ind];
+				rij3 = rij1*rij1*rij1;
+				rij6 = 1/(rij3*rij3);
+				rij7 = rij6/rij1;
+				rij12 = rij6*rij6;
+				rij13 = rij12/rij1;
+				e6ijTrial[ind] = 4*rij6;
+				e12ijTrial[ind] = 4*rij12;
+				vir6ijTrial[ind] = 24/l*rij6;
+				vir12ijTrial[ind] = 48/l*rij12;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
 			dE6  = dE6  - e6ij[ind]  + e6ijTrial[ind];
 			dE12 = dE12 - e12ij[ind] + e12ijTrial[ind];
 			dVir6 = dVir6 - vir6ij[ind] + vir6ijTrial[ind];
 			dVir12 = dVir12 - vir12ij[ind] + vir12ijTrial[ind];
 		}
-		
+
 		//#pragma omp single
 		//{
 		//	if (nm == 19) {
@@ -1039,17 +1077,26 @@ void qad() {
 			dj = ii - nm - 1;
 			ind = indind[nm][dj];
 			rijTrial[ind] = rij[ind] - md;
-			rij1 = rijTrial[ind];
-			rij3 = rij1*rij1*rij1;
-			rij6 = 1/(rij3*rij3);
-			rij7 = rij6/rij1;
-			rij12 = rij6*rij6;
-			rij13 = rij12/rij1;
-			e6ijTrial[ind] = 4*rij6;
-			e12ijTrial[ind] = 4*rij12;
-			vir6ijTrial[ind] = 24/l*rij6;
-			vir12ijTrial[ind] = 48/l*rij12;
-			//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			if (dj >= nbn) {
+				e6ijTrial[ind]    = 0;
+				e12ijTrial[ind]   = 0;
+				vir6ijTrial[ind]  = 0;
+				vir12ijTrial[ind] = 0;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
+			else {
+				rij1 = rijTrial[ind];
+				rij3 = rij1*rij1*rij1;
+				rij6 = 1/(rij3*rij3);
+				rij7 = rij6/rij1;
+				rij12 = rij6*rij6;
+				rij13 = rij12/rij1;
+				e6ijTrial[ind] = 4*rij6;
+				e12ijTrial[ind] = 4*rij12;
+				vir6ijTrial[ind] = 24/l*rij6;
+				vir12ijTrial[ind] = 48/l*rij12;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
 			dE6  = dE6  - e6ij[ind]  + e6ijTrial[ind];
 			dE12 = dE12 - e12ij[ind] + e12ijTrial[ind];
 			dVir6 = dVir6 - vir6ij[ind] + vir6ijTrial[ind];
