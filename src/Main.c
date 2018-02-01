@@ -305,6 +305,17 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 				fprintf(stdout,"####### Energy was just verified ########  E = %.8G ######## ETest = %.8G #######\n",E,ETrial);
 			}
 			}
+ 		}
+		if (sn % 1000 == 0) {
+			#pragma omp single
+			{
+			double dar = (double) (dAcc[0] - dAcc[1])/sn;
+			maxStep = (1 + (dar-0.5))*maxStep;
+			double var = (double) (vAcc[0] - vAcc[1])/sn;
+			maxdl   = (1 + (var-0.5))*maxdl;
+			printf("Step: %lu  Acceptance ratio (displacement, vol. ch.): %.5G, %.5G  changing maxStep to %.5G and maxdl to %.5G\n",sn,dar,var,maxStep,maxdl);
+			}
+			
 		}
 		//printf("gA: %p %p gA[0]: %p %p  gA[%u]: %p %p\n",gA,&(gA[0]),gA[0],&(gA[0][0]),gns-1,gA[gns-1],&(gA[gns-1][0]));
 		#pragma omp single
