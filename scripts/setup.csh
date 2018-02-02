@@ -4,8 +4,8 @@
 #BSUB -R span[hosts=1] 
 #BSUB -o output.%J
 #BSUB -e errors.%J
-#BSUB -q single_chassis
-#BSUB -J P0.5_T0.7
+#BSUB -q gubbins
+#BSUB -J P0.3_T0.5
 ##BSUB -L /bin/csh
 
 #setenv OMP_NUM_THREADS 1
@@ -32,11 +32,11 @@ cd ${scratchDir}
 
 
 set N=2000
-set PStar=(0.5)
-set TStar=(0.7)
-set nbn=(0.2)
+set PStar=(0.3)
+set TStar=(0.5)
+set nbn=(2)
 set maxStepSize=(0.1)
-set maxVolChange=5
+set maxVolChange=3
 
 set numSteps=500000000
 
@@ -70,7 +70,7 @@ echo Compilation completed I think...
     #echo Submitting simulation for: $N ${lStarBar[${ii}]} ${TStar} ${numSteps} ${thermoBlockSize} ${maxStepSize[${ii}]} ${rcutStar} ${grNumBins} ${grBlockSize} ${printConfigInterv}
     echo Submitting simulation...
     #./${LJexe} $N ${lStarBar[${ii}]} ${TStar} ${numSteps} ${thermoBlockSize} ${maxStepSize[${ii}]} ${rcutStar} ${grNumBins} ${grBlockSize} ${printConfigInterv} > l${lStarBar[${ii}]}_T${TStar}_${LSB_JOBID}.out
-    ./${exe} $N $PStar $TStar ${nbn} ${numSteps} lj ${maxStepSize} ${maxVolChange} ${printConfigInterv} ${thermoBlockSize} ${rhoBinWidth} ${rhoNumBins} ${rhoInterval} ${grSegWidth} ${grNumSegs} ${grBinWidth} ${grNumBins} ${grInterval} > out.out
+    ./${exe} $N $PStar $TStar ${nbn} ${numSteps} lj ${maxStepSize} ${maxVolChange} ${printConfigInterv} ${thermoBlockSize} ${rhoBinWidth} ${rhoNumBins} ${rhoInterval} ${grSegWidth} ${grNumSegs} ${grBinWidth} ${grNumBins} ${grInterval} `date +'%s'` > out.out
     #./${exe}
     echo ...Simulation completed I think
 

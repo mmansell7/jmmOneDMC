@@ -39,10 +39,11 @@ struct mcState {
 int tid,bndchk,nbn;  // nbn is the "neighbor number", or any negative int to indicate no neighbor limit
 unsigned long int stepNum,cpi,tpi,slcp,sltp;
 unsigned long int N,numPairs,numSteps,sn; // sn = "step number"
-unsigned long int ind,ii,jj,dj,nm,dAcc[2],vAcc[2];
+unsigned long int ind,ii,jj,dj,nm,dAcc[2],vAcc[2],vAErrN = 1,vAErrNtot,dAErrNtot;
 double P,T,E,dE,ETrial,E6,dE6,E6Trial,E12,dE12,E12Trial,l,Vir,VirTrial,Vir6,Vir6Trial,Vir12,Vir12Trial,dVir,dVir6,dVir12;
 double rij1,rij3,rij6,rij7,rij12,rij13;
 double delta,maxStep,maxdl,rndm,md,dl,lRat1,lRat3,lRat6,lRat7,lRat12,lRat13,ETrial,VirTrial,ran,bf,lA,lSA,EA,ESA,VirA,VirSA;
+double dAErr,dAErrD,dAErrI,vAErr,vAErrD,vAErrI;
 dVECTOR r,rTrial,rij,rijTrial,e12ij,e12ijTrial,e6ij,e6ijTrial,ij,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial;
 luVECTOR iii,jjj;
 luMATRIX indind;
@@ -95,7 +96,13 @@ static gsl_rng * rangen;
 void fagr(FILE *gf, FILE *rhof, struct mcState *mcsp);
 void qagrho(int tid);  // Quick calculation of rho(x) accumulator and g(x) accumulator after displacement
 void ugrho();  // Update accumulators
-
+double dAKP = 0.01;
+double dATI = 50;
+double dATD = 0;
+double vAccRat,vAKP = 0.05;
+double vATI;
+double vATD = 0;
+unsigned long int fv=100, fd=10000;
 
 int main (int argc, char *argv[]) {
 
@@ -119,7 +126,8 @@ int main (int argc, char *argv[]) {
 
 #pragma omp parallel default (shared) \
 private(tid,rij1,rij3,rij6,rij7,rij12,rij13) \
-shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vir12ij,lA,lSA,EA,ESA,nm,rndm,nbn)
+shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vir12ij,lA,lSA,EA,ESA,nm,rndm,nbn, \
+       dAErr,dAErrI,dAErrD,vAErr,vAErrI,vAErrD,vAErrN,vAErrNtot)
 {
 	tid = omp_get_thread_num();
 
@@ -306,17 +314,96 @@ shared(E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6ij,vi
 			}
 			}
  		}
-		if (sn % 1000 == 0) {
-			#pragma omp single
-			{
-			double dar = (double) (dAcc[0] - dAcc[1])/sn;
-			maxStep = (1 + (dar-0.5))*maxStep;
-			double var = (double) (vAcc[0] - vAcc[1])/sn;
-			maxdl   = (1 + (var-0.5))*maxdl;
-			printf("Step: %lu  Acceptance ratio (displacement, vol. ch.): %.5G, %.5G  changing maxStep to %.5G and maxdl to %.5G\n",sn,dar,var,maxStep,maxdl);
+		/*
+		#pragma omp single
+		{
+		if ( (vAcc[0] + vAcc[1] - vAErrNtot != 0) && (vAcc[0] + vAcc[1]) % 100 == 0) {
+			unsigned long int vAccBl[2], vAccLast[2];
+			vAccBl[0] = vAcc[0] - vAccLast[0];
+			vAccBl[1] = vAcc[1] - vAccLast[1];
+			vAErrNtot = vAcc[0] + vAcc[1];
+			vAccRat = (double) vAccBl[0] / 100;
+			printf("Step: %lu  vAccRat: %.5G  ",sn,vAccRat);
+			if (vAccRat < 0.45 || vAccRat > 0.55) {
+				maxdl = maxdl*(0.5 + 0.5*vAccRat + vAccRat*vAccRat);
+				printf("Adjusting maxdl...");
 			}
-			
+			printf("maxdl: %.5G\n",maxdl);
+			vAccLast[0] = vAcc[0];
+			vAccLast[1] = vAcc[1];
 		}
+		}
+		*/
+		
+		unsigned long int div = 1000;
+		#pragma omp single
+		{
+		if ( (dAcc[0]+dAcc[1] - dAErrNtot) != 0 && (dAcc[0]+dAcc[1]) % fd == 0 ) {
+			dAErrNtot = dAcc[0]+dAcc[1];
+			maxStep = maxStep*log(0.672924*0.5 + 0.0644284)/log(0.672924*((double) dAcc[0]/(dAcc[0]+dAcc[1]) + 0.0644284));
+			printf("Step: %lu  dAcc: %lu,%lu   maxStep: %.5G\n",sn,dAcc[0],dAcc[1],maxStep);
+		}
+		/*
+		if ( (dAcc[0]+dAcc[1] - dAErrNtot) != 0 && (dAcc[0]+dAcc[1]) % fd == 0 ) {
+			dAErrNtot = dAcc[0] + dAcc[1];
+			dAErrD = dAErr;
+			dAErr = (double) dAcc[0] - dAcc[1];
+			dAErrI = dAErrI + dAErr*fd;
+			dAErrD = (dAErr - dAErrD)/fd;
+			maxStep = (0.1*l)/N*exp(dAKP*dAErr + (dAKP/dATI)*dAErrI + dAKP*dATD*dAErrD);
+			if (maxStep > 0.3*l/N) {
+				maxStep = 0.3*l/N;
+				dAErrI = 0;
+			}
+			printf("Step: %lu  dAcc: %lu,%lu  dAErr: %.5G  dAErrI: %.5G  dAErrD: %.5G  maxStep: %.5G\n",sn,dAcc[0],dAcc[1],dAErr,dAErrI,dAErrD,maxStep);
+		}	
+		*/
+		if ( (vAcc[0]+vAcc[1] - vAErrNtot) != 0 && (vAcc[0]+vAcc[1]) % fv == 0 ) {
+			vAErrNtot = vAcc[0]+vAcc[1];
+			maxdl = maxdl*log(0.672924*0.5 + 0.0644284)/log(0.672924*((double) vAcc[0]/(vAcc[0]+vAcc[1]) + 0.0644284));
+			printf("Step: %lu  vAcc: %lu,%lu   maxStep: %.5G\n",sn,vAcc[0],vAcc[1],maxdl);
+		}
+		
+		/*
+		if ( (vAcc[0] + vAcc[1] - vAErrNtot != 0) && (vAcc[0] + vAcc[1]) % fv == 0 ) {
+			vAErrNtot    = vAcc[0] + vAcc[1];
+			vAErrD = vAErr;
+			vAErr = ((double) vAcc[0] - vAcc[1]);
+			vAErrI = vAErrI + vAErr*fv;
+			vAErrD = (vAErr - vAErrD)/fd;
+			maxdl   = 1.22*N*exp(vAKP*vAErr + (vAKP/vATI)*vAErrI + vAKP*vATD*vAErrD);
+			if (maxdl > 0.3*l) {
+				maxdl = 0.3*l;
+				vAErrI = vAErrI - vAErr*fv;
+			}
+			printf("Step: %lu  vAcc: %lu,%lu  vAErr: %.5G  vAErrI: %.5G  vAErrD: %.5G  maxdl: %.5G\n",sn,vAcc[0],vAcc[1],vAErr,vAErrI,vAErrD,maxdl);
+			//vAErrD = vAErr;
+			//vAErr = vAErrI/vAErrN;
+			//vAErrN    = vAcc[0] + vAcc[1] - vAErrNtot;
+			//vAErrNtot = vAcc[0] + vAcc[1];
+			//vAErrI = ( (double) vAcc[0] - vAcc[1]);
+			//vAErr = vAErrI/vAErrN - vAErr;
+			//vAErrD = vAErr - vAErrD;
+		}
+		*/
+		/*
+		maxStep = (0.1*l)/N*exp(dAKP*dAErr + (dAKP/dATI)*dAErrI + dAKP*dATD*dAErrD);
+		if (maxStep > 0.3*l/N) {
+			maxStep = 0.3*l/N;
+			dAErrI = dAErrI - dAErr;
+		}
+		maxdl   = 1.22*N*exp(vAKP*vAErr + (vAKP/vATI)*vAErrI + vAKP*vATD*vAErrD);
+		if (maxdl > 0.3*l) {
+			maxdl = 0.3*l;
+			vAErrI = vAErrI - vAErr*vAErrN;
+		}
+		*/
+		
+		//printf("Step: %lu  Acc: %lu, %lu, %lu, %lu  AErr: %.5G, %.10G  AErrI: %.5G, %.10G  AErrD: %.5G, %.10G  changing maxStep to %.5G and maxdl to %.5G\n",
+		//	sn,dAcc[0],dAcc[1],vAcc[0],vAcc[1],dAErr,vAErr,dAErrI,vAErrI,dAErrD,vAErrD,maxStep,maxdl);
+		}
+		
+			
 		//printf("gA: %p %p gA[0]: %p %p  gA[%u]: %p %p\n",gA,&(gA[0]),gA[0],&(gA[0][0]),gns-1,gA[gns-1],&(gA[gns-1][0]));
 		#pragma omp single
 		{
@@ -687,7 +774,7 @@ void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng
 	*VirA = 0;
 	*VirSA = 0;
 
-	dAcc[0] = 0;
+	dAcc[0] = -1;
 	dAcc[1] = 0;
 	vAcc[0] = 0;
 	vAcc[1] = 0;
@@ -771,7 +858,7 @@ void setup(FILE **cfp, FILE **tfp, double *Ep, double *Virp, double *lp, gsl_rng
 	fgrho();
 	ugrho();
 	fflush(stdout);
-
+	vATI = 1.25;
 }
 
 void fgrho() {
