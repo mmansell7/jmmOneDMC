@@ -4,6 +4,13 @@ struct MCState * setupMCS();
 void mcsPrintStep(struct MCState *);
 void mcs_fad(struct MCState *,unsigned long int *, double *);
 int printMCP(struct MCState *mcs1);
+int mcs_printCoords(struct MCState *mcs);
+int mcs_printRho(struct MCState *mcs);
+int mcs_printG(struct MCState *mcs);
+int mcs_fgrho(struct MCState *mcs);
+int mcs_ugrho(struct MCState *mcs);
+int mcs_qad(struct MCState *mcs,unsigned long int nm,double rndm);
+int mcs_qav(struct MCState *mcs,unsigned long int nm,double rndm);
 
 struct MCInput {
   

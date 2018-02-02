@@ -142,15 +142,19 @@ shared(mcs,E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6i
 	#pragma omp single
 	{
 		printCoords(cf,sn,r);
+		mcs_printCoords(mcs);
 	}
 	#pragma omp single
 	{
 		slrho = -1;
 		printRho();
+		mcs_printRho(mcs);
 	}
+
 	
 	slg = -1;
 	printG();
+	mcs_printG(mcs);
 	
 	// ############################### MC LOOP #######################################
 	while (sn < numSteps) {
@@ -168,15 +172,18 @@ shared(mcs,E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6i
 
 		if (nm < N) {
 			qad();
+			mcs_qad(mcs,rndm,nm);
 			//fprintf(rhof,"nm: %lu, md: %.5G\n",nm,md);
 			//fad(N,nbn,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir,nm,rndm);
 			}
 		else {
 			//fav(r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir,   rndm);
 			if (nbn >= 0 ) {
+				mcs_qav(mcs,nm,rndm);
 				qav();
 			}
 			else {
+				mcs_fad(mcs,&nm,&rndm);
 				fad(N,nbn,numPairs,r,rTrial,rij,rijTrial,e6ij,e6ijTrial,e12ij,e12ijTrial,vir6ij,vir6ijTrial,vir12ij,vir12ijTrial,&l,&E,&Vir,nm,rndm);
 			}
 		}
@@ -192,6 +199,7 @@ shared(mcs,E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6i
 				if (sn % cpi == 0) {
 					//printf("Printing coordinates...\n");
 					printCoords(cf,sn,r);
+					mcs_printCoords(mcs);
 					//printf("Done printing coordinates...\n");
 				}
 			}
@@ -242,6 +250,7 @@ shared(mcs,E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6i
 				if (sn % rhopi == 0) {
 					//printf("Printing rho...\n");
 					printRho();
+					mcs_printRho(mcs);
 					//printf("Done printing rho...\n");
 				}
 			}
@@ -254,6 +263,7 @@ shared(mcs,E,dE6,dE12,ETrial,Vir,VirTrial,iii,jjj,l,lRat1,r,rij,e6ij,e12ij,vir6i
 			//}
 
 			printG();
+			mcs_printG(mcs);
 			//#pragma omp single
 			//{
 			//printf("Done printing g(x)\n");
@@ -1477,6 +1487,14 @@ void ugrho() {
 		}
 	}
 }
+
+
+
+
+
+
+
+
 
 
 

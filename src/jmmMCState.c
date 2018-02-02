@@ -3,6 +3,7 @@
 #include "jmmMCState.h"
 
 double mcsE6Trial, mcsE12Trial, mcsVir6Trial, mcsVir12Trial;
+double mcsdE6,mcsdE12,mcsdE,mcsdVir6,mcsdVir12,mcsdVir;
 
 struct MCState {
   
@@ -136,7 +137,7 @@ struct MCState {
                                    //   segment and bin of g(r) for the current g(r) block.
   double **gM;                     // Two-dimensional array with mean g(r) in each segment and bin
                                    //   for the current g(r) block
-  gsl_rng * rangen;                  // Random number generator
+  gsl_rng * rangen;                // Random number generator
 };
 
 int printMCP(struct MCState *mcs1) {
@@ -207,8 +208,8 @@ struct MCState * setupMCS(struct MCInput inp) {
 	mcs->VirSA      = 0;
 
 
-	mcs->cf = fopen("config.dat","w");
-        mcs->tf = fopen("thermo.dat","w");
+	mcs->cf = fopen("config.dat.mcs","w");
+        mcs->tf = fopen("thermo.dat.mcs","w");
         fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
 	fflush(mcs->tf);
         
@@ -263,7 +264,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
-        mcs->rhof = fopen("rho.dat","w");
+        mcs->rhof = fopen("rho.dat.mcs","w");
         for (ii = 0; ii < mcs->N; ii++) {
                 mcs->rhol[ii] = 0;
                 mcs->rhoA[ii] = 0;
@@ -279,7 +280,7 @@ struct MCState * setupMCS(struct MCInput inp) {
                 mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
                 mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
                 mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
-                sprintf(gfstr,"g%lu.dat",ii);
+                sprintf(gfstr,"g%lu.dat.mcs",ii);
                 mcs->gf[ii] = fopen(gfstr,"w");
                 for (jj = 0; jj < mcs->gnb; jj++) {
                         mcs->gl[ii][jj] = 0;
@@ -301,8 +302,8 @@ struct MCState * setupMCS(struct MCInput inp) {
                 mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
         }
         
-        //fgrho();
-        //ugrho();
+        mcs_fgrho(mcs);
+        mcs_ugrho(mcs);
 
 	mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
 	gsl_rng_set(mcs->rangen,mcs->seed);
@@ -455,4 +456,546 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	fflush(stdout);
 	#pragma omp barrier
 }
+
+int mcs_printCoords(struct MCState *mcs) {
+        unsigned long int ind;
+        fprintf(mcs->cf,"%lu\nStep no.: %lu  Box length: %.5f\n",mcs->N,mcs->sn,mcs->l);
+        for(ind = 0; ind < mcs->N; ind++) {
+                fprintf(mcs->cf,"%lu  0.0  0.0  %.8G\n",ind+1,mcs->r[ind]);
+        }
+        fflush(mcs->cf);
+
+        return 0;
+}
+
+
+int mcs_printRho(struct MCState *mcs) {
+
+
+        unsigned long int rb,ns;
+        // if (fprintf(rhof,"") < 0 ) {
+        // perror("Error printing to rhof.dat!\n");
+        // }
+        ns = (mcs->sn - mcs->slrho);
+        //printf("printRho.  sn = %lu  rhof = %p  ns = %lu\n",sn,rhof,ns);
+        //fflush(stdout);
+        //printf("rhof new line\n");
+        fprintf(mcs->rhof,"%lu",mcs->sn);
+        //fflush(rhof);
+        for (rb = 0; rb < mcs->rhonb; rb++) {
+          //printf("## rhoM[%lu]: %p rhoA[%lu]: %p gA: %p %p gA[0]: %p %p  gA[%u]: %p %p\n",rb,&rhoM[rb],rb,&rhoA[rb],gA,&(gA[0]),gA[0],&(gA[0][0]),gns-1,gA[gns-1],&(gA[gns-1][0]));
+          //fflush(stdout);
+          //printf("rb = %lu\n",rb);
+          //fflush(stdout);
+          mcs->rhoM[rb] = (double) mcs->rhoA[rb]/ns/mcs->rbw;
+          fprintf(mcs->rhof," %.8G",mcs->rhoM[rb]);
+          //fflush(stdout);
+          mcs->rhoA[rb] = 0;
+        }
+        fprintf(mcs->rhof,"\n");
+        fflush(mcs->rhof);
+        mcs->slrho = mcs->sn;
+
+        return 0;
+}
+
+int mcs_printG(struct MCState *mcs) {
+  
+	int gs;
+	unsigned long int gb,ns;
+	
+	#pragma omp for private(gs,gb,ns)
+	for (gs = 0; gs < mcs->gns; gs++) {
+		fprintf(mcs->gf[gs],"%lu",mcs->sn);
+		ns = (mcs->sn - mcs->slg);
+
+		for (gb = 0; gb < mcs->gnb; gb++) {
+			mcs->gM[gs][gb] = (double) mcs->gA[gs][gb]/ns/mcs->gsw/mcs->gbw;
+			fprintf(mcs->gf[gs]," %.8G",mcs->gM[gs][gb]);
+			mcs->gA[gs][gb] = 0;
+		}
+		fprintf(mcs->gf[gs],"\n");
+		fflush(mcs->gf[gs]);
+	}
+	mcs->slg = mcs->sn;
+
+	return 0;
+
+}
+  
+  
+
+
+
+int mcs_fgrho(struct MCState *mcs) {
+
+	unsigned long int ii,jj,ind;
+	long int rb,gs1,gs2,gb;
+	
+	#pragma omp for
+	for (rb = 0; rb < mcs->rhonb; rb++) {
+		mcs->rhol[rb] = 0;
+	}
+
+	#pragma omp for
+	for(ii = 0; ii < mcs->N; ii++) {
+		//printf("ii = %lu\n",ii);
+		rb = (long int) floor(mcs->r[ii]/mcs->rbw + mcs->rhonb/2.0);
+		if (rb >= 0 && rb < mcs->rhonb) {
+			#pragma omp atomic
+			mcs->rhol[rb]++;
+		}
+	}
+	
+	//printf("Inside fgrho...Thread no.: %d...gns,gnb = %d, %lu\n",omp_get_thread_num(),gns,gnb);
+	fflush(stdout);
+	#pragma omp barrier
+	// #pragma omp single
+	// {
+	
+	#pragma omp for
+	for (gs1 = 0; gs1 < mcs->gns; gs1++) {
+		for (gb = 0; gb < mcs->gnb; gb++) {
+			mcs->gl[gs1][gb] = 0;
+		}
+	}
+	
+	#pragma omp for private(ind,ii,jj,gs1,gs2,gb)
+	//printf("gA: %p %p gA[0]: %p %p  gA[%u]: %p %p\n",gA,&(gA[0]),gA[0],&(gA[0][0]),gns-1,gA[gns-1],&(gA[gns-1][0]));
+	for (ind = 0; ind < mcs->numPairs; ind++) {
+		ii = mcs->iii[ind];
+		jj = mcs->jjj[ind];
+		gs1 = (long int) floor(mcs->r[ii]/mcs->gsw + mcs->gns/2.0);
+		gs2 = (long int) floor(mcs->r[jj]/mcs->gsw + mcs->gns/2.0);
+		gb = (long int) floor(mcs->rij[ind]/mcs->gbw);
+		//printf("ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
+		//fflush(stdout);
+		if(gb < mcs->gnb) {
+			if (gs1 >= 0 && gs1 < (long int) mcs->gns) {
+				//printf("A ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
+				//fflush(stdout);
+				#pragma omp atomic
+				mcs->gl[gs1][gb]++;
+			}
+			else {
+				//printf("B ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
+				//fflush(stdout);
+				
+			}
+			
+			if (gs2 >= 0 && gs2 < (long int) mcs->gns) {
+				//printf("C ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
+				//fflush(stdout);
+				//printf("Accumulating to gA[%ld][%lu] at ",gs2,gb);
+				//fflush(stdout);
+				//printf("gA: %p  gA[%ld][%lu]: %p...",gA,gs2,gb,&(gA[gs2][gb]));
+				//fflush(stdout);
+				#pragma omp atomic
+				mcs->gl[gs2][gb]++;
+				//printf(" = %d\n",gA[gs2][gb]);
+				//fflush(stdout);
+			}
+			else {
+				//printf("D ");
+				//printf("ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
+				//fflush(stdout);
+			}
+		
+		}
+		else {
+			//printf("E ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
+			//fflush(stdout);
+		}
+		//printf("Next ind = %lu\n",ind+1);
+	}
+	//printf("Out of for loop\n");
+
+  return 0;
+}
+
+
+
+int mcs_ugrho(struct MCState *mcs) {
+
+	unsigned long int rb,gb;
+	unsigned int gs;
+	
+	#pragma omp for
+	for (rb = 0; rb < mcs->rhonb; rb++) {
+		//fprintf(rhof,"rhol[%lu] = %d ",rb,rhol[rb]);
+		mcs->rhoA[rb] += mcs->rhol[rb];
+	}
+	/*#pragma omp single
+	{
+	fprintf(rhof,"rhoA: ");
+	for (rb = 0; rb < rhonb; rb++) {
+		fprintf(rhof,"%d ",rhoA[rb]);
+	}
+	fprintf(rhof,"\n");
+	}*/
+     
+	//if (rbn1 != rbn2) {
+		//fprintf(rhof,"md: %.5G, r[%lu]: %.5G -> %.5G,  rbn1 = %lu  rbn2 = %lu\n",md,nm,r[nm]-md,r[nm],rbn1,rbn2);
+		//fprintf(rhof,"nm: %lu  rbn1 = %lu  rbn2 = %lu  rhol[rbn1] = %d   rhol[rbn2] = %d  rhoA[rbn1] = %d  rhoA[rbn2] = %d\n",nm,rbn1,rbn2,rhol[rbn1],rhol[rbn2],rhoA[rbn1],rhoA[rbn2]);
+	//}
+
+	#pragma omp for private(gs,gb)
+	for (gs = 0; gs < mcs->gns; gs++) {
+		for (gb = 0; gb < mcs->gnb; gb++) {
+			mcs->gA[gs][gb] += mcs->gl[gs][gb];
+		}
+	}
+
+  return 0;
+}
+
+
+
+int mcs_qad(struct MCState *mcs,unsigned long int nm,double rndm) {
+
+	unsigned long int ii,jj,dj,ind;
+	double rij1,rij3,rij6,rij7,rij12,rij13,ran;
+	//double d;
+	mcs->rn = rndm;
+	mcs->nm = nm;
+	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
+	
+	#pragma omp single
+	{
+	mcs->rTrial[mcs->nm] = mcs->r[mcs->nm] + mcs->md;
+	//fprintf(stdout,"Attempting to move particle %lu by %lf...",nm,md);
+	}
+	
+	if (fabs(mcs->rTrial[mcs->nm]) > mcs->l/2.0) {
+		#pragma omp single
+		{
+		mcs->dAcc[1]++;
+		//printf("Wall collision. Move rejected...dRej = %lu",dAcc[1]);
+		}
+	}
+	
+	else {
+		#pragma omp single
+		{
+		mcsdE6 = 0;
+		mcsdE12 = 0;
+		mcsdVir6 = 0;
+		mcsdVir12 = 0;
+		}
+		
+		//printf("nm = %lu...\n",nm);
+		//fflush(stdout);	
+		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12) nowait
+		for (ii = 0; ii < mcs->nm; ii++) {
+		//	printf("ii = %lu\n",ii);
+		//	fflush(stdout);	
+			dj = mcs->nm - ii - 1;
+			ind = mcs->indind[ii][dj];
+			mcs->rijTrial[ind] = mcs->rij[ind] + mcs->md;
+			if ( mcs->nbn >= 0 && dj >= mcs->nbn ) {
+				mcs->e6ijTrial[ind] = 0;
+				mcs->e12ijTrial[ind] = 0;
+				mcs->vir6ijTrial[ind] = 0;
+				mcs->vir12ijTrial[ind] = 0;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
+			else {
+				rij1 = mcs->rijTrial[ind];
+				rij3 = rij1*rij1*rij1;
+				rij6 = 1/(rij3*rij3);
+				rij7 = rij6/rij1;
+				rij12 = rij6*rij6;
+				rij13 = rij12/rij1;
+				mcs->e6ijTrial[ind] = 4*rij6;
+				mcs->e12ijTrial[ind] = 4*rij12;
+				mcs->vir6ijTrial[ind] = 24/mcs->l*rij6;
+				mcs->vir12ijTrial[ind] = 48/mcs->l*rij12;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
+			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
+			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
+			mcsdVir6 = mcsdVir6 - mcs->vir6ij[ind] + mcs->vir6ijTrial[ind];
+			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
+		}
+
+		//#pragma omp single
+		//{
+		//	if (nm == 19) {
+		//		fprintf(stdout,"(Intermediate) dE6, dE12 = %.8G, %.8G\n",dE6,dE12);
+		//	}
+		//}
+		
+		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12)
+		for (ii = mcs->nm + 1; ii < mcs->N; ii++) {
+		//	printf("ii = %lu\n",ii);
+		//	fflush(stdout);	
+			dj = ii - mcs->nm - 1;
+			ind = mcs->indind[mcs->nm][dj];
+			mcs->rijTrial[ind] = mcs->rij[ind] - mcs->md;
+			if (dj >= mcs->nbn) {
+				mcs->e6ijTrial[ind]    = 0;
+				mcs->e12ijTrial[ind]   = 0;
+				mcs->vir6ijTrial[ind]  = 0;
+				mcs->vir12ijTrial[ind] = 0;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
+			else {
+				rij1 = mcs->rijTrial[ind];
+				rij3 = rij1*rij1*rij1;
+				rij6 = 1/(rij3*rij3);
+				rij7 = rij6/rij1;
+				rij12 = rij6*rij6;
+				rij13 = rij12/rij1;
+				mcs->e6ijTrial[ind] = 4*rij6;
+				mcs->e12ijTrial[ind] = 4*rij12;
+				mcs->vir6ijTrial[ind] = 24/mcs->l*rij6;
+				mcs->vir12ijTrial[ind] = 48/mcs->l*rij12;
+				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
+			}
+			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
+			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
+			mcsdVir6 = mcsdVir6 - mcs->vir6ij[ind] + mcs->vir6ijTrial[ind];
+			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
+		}
+		
+		//#pragma omp single
+		//{
+		//	if (nm == 19) {
+		//		fprintf(stdout,"(End) dE6, dE12 = %.8G, %.8G\n",dE6,dE12);
+		//	}
+		//}
+		#pragma omp barrier  // THIS BARRIER IS CRITICAL TO CALCULATE dE ACCURATELY (I DO NOT UNDERSTAND WHY THAT SHOULD BE THE CASE)
+		
+		#pragma omp single
+		{
+		mcs->dE12 = mcsdE12;
+		mcs->dE6 = mcsdE6;
+		mcs->dE = mcs->dE12 - mcs->dE6;
+		//printf("dE = %.8G...",dE);
+		//fflush(stdout);	
+		}
+		
+		if (mcs->dE > 0 ) {
+		#pragma omp single
+		{
+			//printf("ETrial: %lf...*Ep: %.5G...",ETrial,*Ep);
+			ran = gsl_rng_uniform(mcs->rangen);
+			mcs->bf = exp(-mcs->dE/mcs->T);
+		}
+		}
+		
+		if (mcs->dE <= 0 || mcs->bf > ran) {
+			#pragma omp single
+			{
+			mcs->dAcc[0]++;
+                        //printf("Boltzmann factor: %lf...random: %lf...",bf,ran);
+			//printf("Displacement accepted...dAcc = %lu...",dAcc[0]);
+			mcs->E      += mcs->dE;
+			mcs->E6     += mcs->dE6;
+			mcs->E12    += mcs->dE12;
+			mcs->Vir6   += mcs->dVir6;
+			mcs->Vir12  += mcs->dVir12;
+			mcs->Vir    += mcs->dVir12 - mcs->dVir6;
+			mcs->r[mcs->nm] = mcs->rTrial[mcs->nm];
+			}
+			
+			#pragma omp for private(jj,dj,ind) nowait
+			for (jj = 0; jj < mcs->nm; jj++) {
+				//printf("jj = %lu\n",jj);
+				//fflush(stdout);	
+				dj = mcs->nm - jj - 1;
+				ind = mcs->indind[jj][dj];
+				//printf("1. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->rij[ind] = mcs->rijTrial[ind];
+				//printf("2. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
+				//printf("3. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
+				//printf("4. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
+				//printf("5. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+				//printf("6. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				//fprintf(tf,"jj,nm,dj,rij = %lu,%lu,%lu,%lf\n",jj,nm,dj,rij[ind]);
+			}
+			#pragma omp for private(jj,dj,ind)
+			for (jj = mcs->nm + 1; jj < mcs->N; jj++) {
+				//printf("7. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				dj = jj - mcs->nm - 1;
+				//printf("8. nm,jj,dj,ind = %lu,%lu,%lu,%lu\n",nm,jj,dj,ind);
+				//fflush(stdout);	
+				ind = mcs->indind[mcs->nm][dj];
+				//printf("9. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->rij[ind] = mcs->rijTrial[ind];
+				//printf("10. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
+				//printf("11. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
+				//printf("12. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
+				//printf("13. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+				//printf("14. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
+				//fflush(stdout);	
+				//fprintf(tf,"jj,nm,dj,rij = %lu,%lu,%lu,%lf\n",jj,nm,dj,rij[ind]);
+				fflush(mcs->tf);
+			}
+			
+			mcs_qagrho(mcs);
+			
+		/*#pragma omp single
+		{
+			//printf("Done accepting displacement\n");
+			fflush(stdout);	
+		}*/
+		}
+		else {
+		#pragma omp single
+		{
+			mcs->dAcc[1]++;
+                        //printf("Boltzmann factor: %lf...random: %lf...",bf,ran);
+			//printf("Displacement rejected...dRej = %lu...",dAcc[1]);
+		}
+		}
+		//printf("Check 9...Thread no.: %d\n",omp_get_thread_num());
+		
+		/*#pragma omp single
+		{
+			printf("E = %.8G\n",E);
+		} */
+	}
+	
+	mcs_ugrho(mcs);
+	//printf("Exiting fad...Thread no.: %d\n",omp_get_thread_num());
+	fflush(stdout);
+	#pragma omp barrier
+
+
+	return 0;
+}
+
+
+
+int mcs_qav(struct MCState *mcs,unsigned long int nm,double rndm) {
+	
+	unsigned long int ii,ind;
+	double dQ,ran,lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
+	
+	mcs->rn = rndm;
+	mcs->nm = nm;
+	
+	#pragma omp single
+	{
+	mcs->dl = (mcs->rn-0.5)*2*mcs->maxdl;
+	//fprintf(stdout,"Attempting to change volume by %lf...",dl);
+	//printf("E6 = %.5G...E12 = %.5G...E = %.5G...",E6,E12,E);
+	lRat1 = (mcs->l+mcs->dl)/mcs->l;
+	lRat3 = lRat1*lRat1*lRat1;
+	lRat6 = 1/(lRat3*lRat3);
+	lRat12 = lRat6*lRat6;
+	mcs->E6Trial = lRat6*mcs->E6;
+	mcs->E12Trial = lRat12*mcs->E12;
+	mcs->dE = mcs->E12Trial - mcs->E6Trial - mcs->E;
+	//mcs->bf = exp(-(dE + P*dl)/T)*pow(lRat1,N);
+	mcs->bf   = exp(-(mcs->dE + mcs->P*mcs->dl)/mcs->T + mcs->N*log(lRat1));
+	//printf("E6Trial = %.5G...E12Trial = %.5G...dE = %.5G...Boltzmann factor: %lf",E6Trial,E12Trial,dE,bf);
+	//printf("dE = %.5G...Boltzmann factor: %lf...",dE,bf);
+
+	if (mcs->bf < 1.0 ) {
+//		printf("ETrial: %lf...*Ep: %.5G...",ETrial,*Ep);
+		ran = gsl_rng_uniform(mcs->rangen);
+		//printf("dE: %lf...Boltzmann factor: %lf...",dE,bf);
+	}
+	}
+	
+	if (mcs->bf >= 1.0 || mcs->bf > ran) {
+		#pragma omp single
+		{
+		//printf("random: %lf...",ran);
+		mcs->vAcc[0]++;
+		//printf("Volume change accepted...vAcc = %lu",vAcc[0]);
+		mcs->E6  = mcs->E6Trial;
+		mcs->E12 = mcs->E12Trial;
+		mcs->E      = mcs->E12 - mcs->E6;
+		
+		mcs->l = mcs->l + mcs->dl;
+		
+		lRat7 = lRat6/lRat1;
+		lRat13 = lRat12/lRat1;
+		mcs->Vir6 = lRat7*mcs->Vir6;
+		mcs->Vir12 = lRat13*mcs->Vir12;
+		mcs->Vir    = mcs->N*mcs->T/mcs->l + mcs->Vir12 - mcs->Vir6;
+		}
+		
+		#pragma omp single private(ii) nowait
+		for (ii = 0; ii < mcs->N; ii++) {
+			mcs->r[ii] = lRat1*mcs->r[ii];
+		}
+		
+		#pragma omp for private(ind)
+		for (ind = 0; ind < mcs->numPairs; ind++) { 
+			mcs->rij[ind]     = lRat1*mcs->rij[ind];
+			mcs->e6ij[ind]    = lRat6*mcs->e6ij[ind];
+			mcs->e12ij[ind]   = lRat12*mcs->e12ij[ind];
+			mcs->vir6ij[ind]  = lRat7*mcs->vir6ij[ind];
+			mcs->vir12ij[ind] = lRat13*mcs->vir12ij[ind];
+		}
+		
+/*		#pragma omp single
+		{
+		for (ii = 0; ii < N - 1; ii++) {
+			for (jj = ii + 1; jj < N; jj++) {
+				dj = jj - ii - 1;
+				ind = indind[ii][dj];
+				fprintf(stdout,"rij[%lu][%lu] = %lf\n",ii,jj,rij[ind]);
+			}
+		}
+		} */
+		mcs_fgrho(mcs);
+	}
+	
+	else {
+		#pragma omp single
+		{
+		//printf("random: %lf...",ran);
+		mcs->vAcc[1]++;
+		//printf("Volume change rejected...vRej = %lu",vAcc[1]);
+		}
+	}
+	mcs_ugrho(mcs);
+	fflush(stdout);
+
+	return 0;
+}
+
+
+
+
+int mcs_qagrho(mcs) {
+
+  
+  return 0;
+}
+
+
+
+
+
+
+
+
+
+
 
