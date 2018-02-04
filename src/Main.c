@@ -17,6 +17,7 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include "jmmMCState.h"
+#include "readInput.h"
 
 typedef double* dVECTOR;
 typedef dVECTOR* dMATRIX;
@@ -114,6 +115,7 @@ int main (int argc, char *argv[]) {
 	printf("#      Version %s : %s      #\n",verStr,verDateStr);
 	printf("########################################\n\n");
 	struct MCInput inp = readInput(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
+	struct MCInput inp2 = readInput2(argc, argv, &N,&P,&T,&numSteps,phi,&maxStep,&maxdl,&cpi,&tpi);
 	setup(&cf,&tf,&E,&Vir,&l,&rangen,&slcp,&sltp,&lA,&lSA,&EA,&ESA,&VirA,&VirSA,&r,&rTrial,&rij,&rijTrial,&e6ij,
 			&e6ijTrial,&e12ij,&e12ijTrial,&vir12ij,&vir12ijTrial,&vir6ij,&vir6ijTrial,seed);
 	mcs = setupMCS(inp);

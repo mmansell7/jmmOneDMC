@@ -28,6 +28,7 @@ struct MCInput {
   double maxStep;
   double maxdl;
   double * (*phi)(double *rij, void *params);
+  char potStr[80];
   double rbw;
   double gsw;
   double gbw;

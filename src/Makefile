@@ -34,5 +34,12 @@ jmmMCState_henry2 : jmmMCState.c jmmMCState.h
 jmmMCState_macbook : jmmMCState.c jmmMCState.h
 	${CCmac} ${CFLAGSmac} -c jmmMCState.c
 
+testInput : readInput
+	${CChen} ${CFLAGShen} -c testInput.c
+	${CChen} ${CFLAGShen} testInput.o readInput.o -o testInput
+
+readInput : jmmMCState_henry2 readInput.c readInput.h
+	${CChen} ${CFLAGShen} -c readInput.c
+
 .PHONY: run clean
 	
