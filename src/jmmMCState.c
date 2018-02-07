@@ -1,9 +1,12 @@
 #include <stdio.h>
+#include <math.h>
 #include <gsl/gsl_rng.h>
 #include "jmmMCState.h"
 
-double mcsE6Trial, mcsE12Trial, mcsVir6Trial, mcsVir12Trial;
-double mcsdE6,mcsdE12,mcsdE,mcsdVir6,mcsdVir12,mcsdVir;
+static double mcsETest,mcsETrial,mcsE6Trial,mcsE12Trial,mcsVirTrial,mcsVir6Trial,mcsVir12Trial;
+static double mcsdE6,mcsdE12,mcsdE,mcsdVir6,mcsdVir12,mcsdVir,ran;
+static double *rijTest,*e6ijTest,*e12ijTest;
+static long int gs11,gs12;
 
 struct MCState {
   
@@ -26,6 +29,9 @@ struct MCState {
   unsigned long int numSteps;      // Number of steps (total steps requested)
   unsigned long int cpi;           // Configuration print interval
   unsigned long int tpi;           // Thermo print interval
+  unsigned long int eci;           // Energy check interval
+  unsigned long int mdai;          // Maximum displacement adjust interval
+  unsigned long int mvai;          // Maximum volume change adjust interval
   unsigned long int slcp;          // Steps since last configuration print
   unsigned long int sltp;          // Steps since last thermo print
   unsigned long int numPairs;      // Number of pairs
@@ -142,10 +148,18 @@ struct MCState {
 
 int printMCP(struct MCState *mcs1) {
 	printf("Printing Monte Carlo parameters...\n");
-        printf("N: %lu\nP: %.5G\nT: %.5G\nNumber of neighbors with which each particle can interact: %d\n",mcs1->N,mcs1->P,mcs1->T,mcs1->nbn);
+        printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
+	if ( mcs1->nbn > 0 ) {
+		printf("Number of neighbors with which each particle can interact: %d\n",mcs1->nbn);
+	}
+	else {
+		printf("No neighbor number limit.\n");
+	}
 	printf("numSteps: %lu\nmaxStep: %.5G\nmax vol change: %.5G\n",mcs1->numSteps,mcs1->maxStep,mcs1->maxdl);
         printf("Configuration print interval: %lu\nThermo print interval: %lu\nDensity bin width: %.5G\n",mcs1->cpi,mcs1->tpi,mcs1->rbw);
-        printf("Number of density bins: %lu\nDensity print interval: %lu\ng(x) (or two-particle density) segment width: %.5G\n",mcs1->rhonb,mcs1->rhopi,mcs1->gsw);
+        printf("Number of density bins: %lu\nDensity print interval: %lu\ng(x) \
+                  (or two-particle density) segment width: %.5G\n",mcs1->rhonb,
+                  mcs1->rhopi,mcs1->gsw);
         printf("Number of g(x) segments: %d\ng(x) bin width: %.5G\nNumber of g(x) bins: %lu\n",mcs1->gns,mcs1->gbw,mcs1->gnb);
         printf("g(x) print interval: %lu\n\nSeed: %lu\n\n",mcs1->gpi,mcs1->seed);
         fflush(stdout);
@@ -167,8 +181,11 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->numSteps   = inp.ns;
         mcs->cpi        = inp.cpi;
         mcs->tpi        = inp.tpi;
-	mcs->slcp       = 0;
-	mcs->sltp       = 0;
+        mcs->eci        = inp.eci;
+        mcs->mdai       = inp.mdai;
+        mcs->mvai       = inp.mvai;
+	mcs->slcp       = -1;
+	mcs->sltp       = -1;
 	mcs->numPairs   = (unsigned long int) ((double) (mcs->N-1)/2*mcs->N);
 	mcs->nm         = 0;
 	mcs->gpi        = inp.gpi;
@@ -178,8 +195,6 @@ struct MCState * setupMCS(struct MCInput inp) {
 	mcs->maxStep    = inp.maxStep;
 	mcs->maxdl      = inp.maxdl;
 	mcs->phi        = inp.phi;
-	mcs->slg        = 0;
-	mcs->slrho      = 0;
 	mcs->rbw        = inp.rbw;
 	mcs->gsw        = inp.gsw;
 	mcs->gbw        = inp.gbw;
@@ -200,21 +215,12 @@ struct MCState * setupMCS(struct MCInput inp) {
 	mcs->Vir6       = -5E10;
 	mcs->Vir12      = 5E10;
 	mcs->md         = 0;
-	mcs->lA         = 0;
-	mcs->lSA        = 0;
-	mcs->EA         = 0;
-	mcs->ESA        = 0;
-	mcs->VirA       = 0;
-	mcs->VirSA      = 0;
-
 
 	mcs->cf = fopen("config.dat.mcs","w");
         mcs->tf = fopen("thermo.dat.mcs","w");
         fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
 	fflush(mcs->tf);
         
-	mcs->slcp       = 0;
-        mcs->sltp       = 0;
         mcs->lA         = 0;
         mcs->lSA        = 0;
         mcs->EA         = 0;
@@ -228,14 +234,14 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->vAcc[1]    = 0;
 
         mcs->numPairs   = ((mcs->N-1)*mcs->N)/2;
-        mcs->E          = 10E10;
-        mcs->l          = mcs->N;
-        mcs->Vir        = 10E10;
 
         mcs->r          = (double *) malloc(mcs->N*sizeof(double));
         mcs->rij        = (double *) malloc(mcs->numPairs*sizeof(double));
+        rijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
+        e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
 
@@ -260,7 +266,7 @@ struct MCState * setupMCS(struct MCInput inp) {
                 }
         }
 
-        mcs->slrho = 0;
+        mcs->slrho = -1;
         mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
@@ -271,7 +277,7 @@ struct MCState * setupMCS(struct MCInput inp) {
                 mcs->rhoM[ii] = 0;
         }
         
-        mcs->slg = 0;
+        mcs->slg = -1;
         mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
         mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
         mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
@@ -405,7 +411,6 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 				mcsVir6Trial   += mcs->vir6ijTrial[ind];
 				mcsVir12Trial  += mcs->vir12ijTrial[ind];
 			}
-//			printf("ind,ii,jj,rijTrial,e6Trial,e12Trial,ETrial = %lu,%lu,%lu, %.5G, %.5G, %.5G, %.5G\n",ind,ii,jj,rijTrial[ind],e6ijTrial[ind],e12ijTrial[ind],ETrial);
 
 		}
 //		printf("Done with for loop\n");
@@ -460,11 +465,12 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 int mcs_printCoords(struct MCState *mcs) {
         unsigned long int ind;
         fprintf(mcs->cf,"%lu\nStep no.: %lu  Box length: %.5f\n",mcs->N,mcs->sn,mcs->l);
+        fflush(mcs->cf);
         for(ind = 0; ind < mcs->N; ind++) {
                 fprintf(mcs->cf,"%lu  0.0  0.0  %.8G\n",ind+1,mcs->r[ind]);
         }
         fflush(mcs->cf);
-
+	mcs->slcp = mcs->sn;
         return 0;
 }
 
@@ -622,22 +628,8 @@ int mcs_ugrho(struct MCState *mcs) {
 	
 	#pragma omp for
 	for (rb = 0; rb < mcs->rhonb; rb++) {
-		//fprintf(rhof,"rhol[%lu] = %d ",rb,rhol[rb]);
 		mcs->rhoA[rb] += mcs->rhol[rb];
 	}
-	/*#pragma omp single
-	{
-	fprintf(rhof,"rhoA: ");
-	for (rb = 0; rb < rhonb; rb++) {
-		fprintf(rhof,"%d ",rhoA[rb]);
-	}
-	fprintf(rhof,"\n");
-	}*/
-     
-	//if (rbn1 != rbn2) {
-		//fprintf(rhof,"md: %.5G, r[%lu]: %.5G -> %.5G,  rbn1 = %lu  rbn2 = %lu\n",md,nm,r[nm]-md,r[nm],rbn1,rbn2);
-		//fprintf(rhof,"nm: %lu  rbn1 = %lu  rbn2 = %lu  rhol[rbn1] = %d   rhol[rbn2] = %d  rhoA[rbn1] = %d  rhoA[rbn2] = %d\n",nm,rbn1,rbn2,rhol[rbn1],rhol[rbn2],rhoA[rbn1],rhoA[rbn2]);
-	//}
 
 	#pragma omp for private(gs,gb)
 	for (gs = 0; gs < mcs->gns; gs++) {
@@ -651,13 +643,11 @@ int mcs_ugrho(struct MCState *mcs) {
 
 
 
-int mcs_qad(struct MCState *mcs,unsigned long int nm,double rndm) {
+int mcs_qad(struct MCState *mcs) {
 
 	unsigned long int ii,jj,dj,ind;
-	double rij1,rij3,rij6,rij7,rij12,rij13,ran;
+	double rij1,rij3,rij6,rij7,rij12,rij13;
 	//double d;
-	mcs->rn = rndm;
-	mcs->nm = nm;
 	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
 	
 	#pragma omp single
@@ -888,13 +878,10 @@ int mcs_qad(struct MCState *mcs,unsigned long int nm,double rndm) {
 
 
 
-int mcs_qav(struct MCState *mcs,unsigned long int nm,double rndm) {
+int mcs_qav(struct MCState *mcs) {
 	
 	unsigned long int ii,ind;
 	double dQ,ran,lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
-	
-	mcs->rn = rndm;
-	mcs->nm = nm;
 	
 	#pragma omp single
 	{
@@ -983,9 +970,267 @@ int mcs_qav(struct MCState *mcs,unsigned long int nm,double rndm) {
 
 
 
-int mcs_qagrho(mcs) {
 
+
+unsigned long int mcs_incrementStep(struct MCState *mcs) {
+  int flag = 0;
+  const int stepPrintInterval = 1;
   
+  if (mcs->sn == mcs->numSteps) {
+    return 0;
+  }
+  else {
+    #pragma omp barrier
+    #pragma omp single
+    {
+    mcs->sn++;
+    
+    if (mcs->sn % stepPrintInterval == 0) {
+      printf("Step: %lu...\n",mcs->sn);
+      //fflush(stdout);
+    }
+    }
+    return mcs->sn;
+  }
+  #pragma omp barrier
+}
+
+
+
+
+
+
+
+int mcs_Step(struct MCState *mcs) {
+  #pragma omp barrier
+  #pragma omp single
+  {
+  mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->N+1);
+  mcs->rn = gsl_rng_uniform(mcs->rangen);
+  printf("nm: %lu, rn: %.5G...\n",mcs->nm,mcs->rn);
+  fflush(stdout);
+  }
+  #pragma omp barrier
+
+  if (mcs->nm < mcs->N) {
+    printf("Executing mcs_qad(mcs)...\n");
+    fflush(stdout);
+    mcs_qad(mcs);
+  }
+  else {
+    printf("Executing mcs_qav(mcs)...\n");
+    fflush(stdout);
+    mcs_qav(mcs);
+  }
+  
+  if (mcs_isECheck(mcs) ) {
+    mcs_ECheck(mcs);
+  }
+  
+  mcs_updateThermo(mcs);
+
+  return 0;
+
+}
+
+
+int mcs_isCoordPrint(struct MCState *mcs) {
+  if ( mcs->sn % mcs->cpi == 0 ) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+int mcs_isThermoPrint(struct MCState *mcs ) {
+  if ( mcs->sn % mcs->tpi == 0 ) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+
+}
+
+int mcs_isRhoPrint(struct MCState *mcs) {
+  if ( mcs->sn % mcs->rhopi == 0 ) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+
+}
+
+int mcs_isGPrint(struct MCState *mcs) {
+  if ( mcs->sn % mcs->gpi == 0 ) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+
+}
+
+int mcs_isECheck(struct MCState *mcs) {
+  if ( mcs->sn % mcs->eci == 0 ) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+
+}
+
+int mcs_isMaxDisAdjust(struct MCState *mcs) {
+  if ( mcs->sn % mcs->mdai == 0 ) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+
+}
+
+int mcs_isMaxDVAdjust(struct MCState *mcs) {
+  if ( mcs->sn % mcs->mvai == 0 ) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+
+}
+
+
+int mcs_printThermo(struct MCState *mcs) {
+	double lM,lSM,EM,ESM,VirM,VirSM;
+	unsigned long int ss;
+
+	ss = mcs->sn - mcs->sltp;
+
+	lM       = mcs->lA/ss;
+	lSM      = mcs->lSA/ss;
+	EM       = mcs->EA/ss;
+	ESM      = mcs->ESA/ss;
+	VirM     = mcs->VirA/ss;
+	VirSM    = mcs->VirSA/ss;
+//	printf("Check 3...sn: %lu...EM: %.5G...ESM: %.5G...lM: %.5G...lSM: %.5G\n",sn,EM,ESM,lM,lSM);
+	
+	fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,VirM,VirSM);
+	fflush(mcs->tf);
+	mcs->lA     = 0;
+	mcs->lSA    = 0;
+	mcs->EA     = 0;
+	mcs->ESA    = 0;
+	mcs->VirA   = 0;
+	mcs->VirSA  = 0;
+	mcs->sltp   = mcs->sn;
+
+	return 0;
+}
+
+
+int mcs_updateThermo(struct MCState *mcs) {
+
+    mcs->lA = mcs->lA + mcs->l;
+    mcs->lSA = mcs->lSA + mcs->l*mcs->l; 
+    mcs->EA = mcs->EA + mcs->E; 
+    mcs->ESA = mcs->ESA + mcs->E*mcs->E; 
+    mcs->VirA = mcs->VirA + mcs->Vir; 
+    mcs->VirSA = mcs->VirSA + mcs->Vir*mcs->Vir;
+
+    return 0;
+
+}
+
+
+
+int mcs_ECheck(struct MCState *mcs) {
+  int resultFlag;
+  unsigned long int iq,ii,jj;
+  double rij1,rij3,rij6,rij12;
+  
+  #pragma omp for private(iq,ii,jj,rij1,rij3,rij6,rij12) reduction(+:mcsETest)
+  for (iq = 0; iq < mcs->numPairs; iq++) {
+    ii = mcs->iii[iq];
+    jj = mcs->jjj[iq];
+    
+    rijTest[iq] = mcs->r[jj] - mcs->r[ii];
+    if (mcs->nbn >= 0 && jj-ii > mcs->nbn) {
+      e12ijTest[iq] = 0;
+      e6ijTest[iq]  = 0;
+    }
+    else {
+      rij1 = rijTest[iq];
+      rij3 = rij1*rij1*rij1;
+      rij6 = 1/(rij3*rij3);
+      rij12 = rij6*rij6;
+      e12ijTest[iq] = 4*rij12;
+      e6ijTest[iq] = 4*rij6;
+      mcsETest += e12ijTest[iq] - e6ijTest[iq];
+    }
+  }
+  #pragma omp single
+  {
+  if (fabs(mcsETest - mcs->E) > 0.001) {
+    resultFlag = 1;
+    fprintf(stdout,"\n\n\n### !!! $$$ Energy discrepancy!!! ######### !!!!!!!!!!! $$$$$"
+         "$$$$$ !!!!!!!!\nE = %.8G, ETest = %.8G, Resetting energy "
+         "to that of full calculation (E = %.8G)\n\n",mcs->E,mcsETest,mcsETest);
+    mcs->E = mcsETest;
+  }
+  else {
+    resultFlag = 0;
+    fprintf(stdout,"####### Energy was just verified ########  E = %.8G ######## ETest = %.8G #######\n",mcs->E,mcsETest);
+  }
+  }
+  return resultFlag;
+}
+  
+
+int mcs_maxDisAdjust(struct MCState *mcs) {
+  static unsigned long int dAErrNtot = 0;
+  static double idealRatio = 0.5;
+  double actualRatio;
+  
+  if ( (mcs->dAcc[0] + mcs->dAcc[1] - dAErrNtot) != 0 && (mcs->dAcc[0] + mcs->dAcc[1]) % mcs->mdai == 0 ) {
+    dAErrNtot = mcs->dAcc[0] + mcs->dAcc[1];
+    actualRatio = (double) mcs->dAcc[0] / (mcs->dAcc[0] + mcs->dAcc[1]);
+    mcs->maxStep = mcs->maxStep*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
+    printf("Step: %lu  dAcc: %lu,%lu   maxStep: %.5G\n",mcs->sn,mcs->dAcc[0],mcs->dAcc[1],mcs->maxStep);
+  }
+    
+  return 0;
+}
+
+int mcs_maxDVAdjust(struct MCState *mcs) {
+  static unsigned long int vAErrNtot = 0;
+  static double idealRatio = 0.5;
+  double actualRatio;
+  
+  if ( (mcs->vAcc[0] + mcs->vAcc[1] - vAErrNtot) != 0 && (mcs->vAcc[0] + mcs->vAcc[1]) % mcs->mvai == 0 ) {
+    vAErrNtot = mcs->vAcc[0] + mcs->vAcc[1];
+    actualRatio = (double) mcs->vAcc[0] / (mcs->vAcc[0] + mcs->vAcc[1]);
+    mcs->maxdl = mcs->maxdl*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
+    printf("Step: %lu  vAcc: %lu,%lu   maxStep: %.5G\n",mcs->sn,mcs->vAcc[0],mcs->vAcc[1],mcs->maxdl);
+  }
+  
+  return 0;
+}
+
+
+int mcs_printE(struct MCState *mcs) {
+  printf("\nE = %.8G\n",mcs->E);
+  return 0;
+}
+
+int mcs_printAcc(struct MCState *mcs) {
+  printf("Accepted/Rejected: Displacements VolumeChanges\n              \
+          %lu/%lu          %lu/%lu\n",mcs->dAcc[0],mcs->dAcc[1],mcs->vAcc[0], \
+          mcs->vAcc[1]);
   return 0;
 }
 
@@ -993,6 +1238,196 @@ int mcs_qagrho(mcs) {
 
 
 
+
+//void fav(dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij, dVECTOR e6ijTrial, dVECTOR e12ij, dVECTOR e12ijTrial,
+//		dVECTOR vir6ij, dVECTOR vir6ijTrial, dVECTOR vir12ij, dVECTOR vir12ijTrial, double *lp,double *Ep, double *Virp, double rn) {
+int mcs_fav(struct MCState *mcs) {
+	unsigned long int ii,jj,ind;
+	double lRat1,ran;
+	double rij1a,rij3a,rij6a,rij7a,rij12a,rij13a;
+
+	#pragma omp single
+	{
+	mcs->bndchk = 0;
+	mcsETrial = 0;
+	mcsVirTrial = 0;
+	mcs->dl = (mcs->rn-0.5)*2*mcs->maxdl;
+//	printf("Volume change attempt. Linitial = %.5G, dL = %.5G...",*lp,dl);
+	lRat1 = (mcs->l + mcs->dl) / mcs->l;
+//	printf("dl = %.5G, lRat1 = %.5G\n",dl,lRat1);
+	for (ind = 0; ind < mcs->N; ind++) {
+		mcs->rTrial[ind] = mcs->r[ind]*lRat1;
+	}
+
+	}
+
+	#pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) reduction (+:mcsETrial,mcsVirTrial)
+	for (ind = 0; ind < mcs->numPairs; ind++) {
+		ii            = mcs->iii[ind];
+		jj            = mcs->jjj[ind];
+
+//		printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
+
+		rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
+		if ( mcs->nbn >= 0 && jj-ii > mcs->nbn) {
+//			printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
+			mcs->e6ijTrial[ind]       = 0;
+			mcs->e12ijTrial[ind]      = 0;
+			mcs->vir6ijTrial[ind]     = 0;
+			mcs->vir12ijTrial[ind]    = 0;
+//			printf("ii,jj,rij1,rij6,e6 = %lu,%lu, %.5G, %.5G, %.5G\n",ii,jj,rij[ind],rij6a,e6ij[ind]);
+		}
+		else {
+//			printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
+			rij3a          = rij1a*rij1a*rij1a;
+			rij6a          = 1/(rij3a*rij3a);
+			rij7a          = rij6a/rij1a;
+			rij12a         = rij6a*rij6a;
+			rij13a         = rij12a/rij1a;
+	
+			mcs->e6ijTrial[ind]     = 4*rij6a;
+			mcs->e12ijTrial[ind]    = 4*rij12a;
+			mcs->vir6ijTrial[ind]     = 24/mcs->l*rij6a;
+			mcs->vir12ijTrial[ind]    = 48/mcs->l*rij12a;
+//			printf("ii,jj,rij1,rij6,e6 = %lu,%lu, %.5G, %.5G, %.5G\n",ii,jj,rij[ind],rij6a,e6ij[ind]);
+	
+			mcsETrial            += mcs->e12ijTrial[ind] - mcs->e6ijTrial[ind];
+			mcsVirTrial          += mcs->vir12ijTrial[ind] - mcs->vir6ijTrial[ind];
+		}
+	}
+			mcs->ETrial           = mcsETrial;
+			mcs->VirTrial         = mcsVirTrial;
+
+	#pragma omp single
+	{
+
+//	printf("ETrial: %lf...",ETrial);
+	mcs->bf = exp(-(mcs->ETrial - mcs->E + mcs->P*mcs->dl) / mcs->T + mcs->N*log(lRat1));
+
+	if (mcs->bf < 1.0) {
+		ran = gsl_rng_uniform(mcs->rangen);
+	}
+
+	if (mcs->bf >= 1.0 || mcs->bf > ran) {
+//		printf("Volume change accepted...");
+		mcs->vAcc[0]++;
+		mcs->l = mcs->l + mcs->dl;
+		mcs->E = mcs->ETrial;
+		mcs->Vir = mcs->VirTrial;
+		for (ind = 0; ind < mcs->N; ind++) {
+			mcs->r[ind] = mcs->rTrial[ind];
+		}
+		for (ind = 0; ind < mcs->numPairs; ind++) {
+			mcs->rij[ind] = lRat1*mcs->rijTrial[ind];
+			mcs->e6ij[ind] = mcs->e6ijTrial[ind];
+			mcs->e12ij[ind] = mcs->e12ijTrial[ind];
+			mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
+			mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+		}
+//		printf("Volume now: %.5G\n",*lp);
+	}
+	else {
+		mcs->vAcc[1]++;
+//		printf("Volume change rejected\n");
+	}
+	fflush(stdout);
+	}
+	
+	return 0;
+	#pragma omp barrier
+}
+
+
+
+
+int mcs_qagrho(struct MCState *mcs) {
+	
+	unsigned long int ii,jj;
+	long int rb,gs,gb,gb1,gb2,gs2;
+	int aa,bb;
+		
+	#pragma omp single
+	{
+	static long int rbn1,rbn2;
+	rbn1 = (long int) floor((mcs->r[mcs->nm] - mcs->md)/mcs->rbw + mcs->rhonb/2.0);
+	rbn2 = (long int) floor(mcs->r[mcs->nm]/mcs->rbw + mcs->rhonb/2.0);
+	if (rbn1 >= 0 && rbn1 < mcs->rhonb) {
+		mcs->rhol[rbn1]--;
+	}
+	if (rbn2 >= 0 && rbn2 < mcs->rhonb) {
+		mcs->rhol[rbn2]++;
+	}
+	}
+	
+	#pragma omp single
+	{
+	gs11 = (long int) floor((mcs->r[mcs->nm] - mcs->md)/mcs->gsw + mcs->gns/2.0);
+	gs12 = (long int) floor( mcs->r[mcs->nm]           /mcs->gsw + mcs->gns/2.0);
+	}
+	
+	aa = 0;
+	bb = 0;
+	if (gs11 >= 0 && gs11 < mcs->gns) aa += 1;
+	if (gs12 >= 0 && gs12 < mcs->gns) aa += 2;
+
+	#pragma omp for private(ii,jj,gs2,gb1,gb2) nowait
+	for (ii = 0; ii < mcs->nm; ii++) {
+        	bb = aa;
+	        gs2 = (long int) floor(mcs->r[ii]/mcs->gsw + mcs->gns/2.0);
+		if (gs2 >= 0 && gs2 < mcs->gns) bb += 4;
+		gb1 = (unsigned long int) floor(fabs((mcs->r[mcs->nm] - mcs->md - mcs->r[ii]))/mcs->gbw);
+		if (gb1 >= 0 && gb1 < mcs->gnb) bb += 8;
+		gb2 = (unsigned long int) floor(fabs((mcs->r[mcs->nm]      - mcs->r[ii]))/mcs->gbw);
+		if (gb2 >= 0 && gb2 < mcs->gnb) bb += 16;
+		
+		if (bb % 2 >= 1 && bb % 16 >= 8) {
+			#pragma omp atomic
+			mcs->gl[gs11][gb1]--;
+		}
+		if (bb % 4 >= 2 && bb % 32 >= 16) {
+			#pragma omp atomic
+			mcs->gl[gs12][gb2]++;
+		}
+		if (bb % 8 >= 4 && bb % 16 >= 8) {
+			#pragma omp atomic
+			mcs->gl[gs2][gb1]--;
+		}
+		if (bb % 8 >= 4 && bb % 32 >= 16) {
+			#pragma omp atomic
+			mcs->gl[gs2][gb2]++;
+		}
+	}
+	
+	#pragma omp for private(ii,jj,gs2,gb1,gb2)
+	for (ii = mcs->nm + 1; ii < mcs->N; ii++) {
+        	bb = aa;
+	        gs2 = (long int) floor(mcs->r[ii]/mcs->gsw + mcs->gns/2.0);
+		if (gs2 >= 0 && gs2 < mcs->gns) bb += 4;
+		gb1 = (unsigned long int) floor(fabs((mcs->r[mcs->nm] - mcs->md - mcs->r[ii]))/mcs->gbw);
+		if (gb1 >= 0 && gb1 < mcs->gnb) bb += 8;
+		gb2 = (unsigned long int) floor(fabs((mcs->r[mcs->nm]      - mcs->r[ii]))/mcs->gbw);
+		if (gb2 >= 0 && gb2 < mcs->gnb) bb += 16;
+
+		if (bb % 2 >= 1 && bb % 16 >= 8) {
+			#pragma omp atomic
+			mcs->gl[gs11][gb1]--;
+		}
+		if (bb % 4 >= 2 && bb % 32 >= 16) {
+			#pragma omp atomic
+			mcs->gl[gs12][gb2]++;
+		}
+		if (bb % 8 >= 4 && bb % 16 >= 8) {
+			#pragma omp atomic
+			mcs->gl[gs2][gb1]--;
+		}
+		if (bb % 8 >= 4 && bb % 32 >= 16) {
+			#pragma omp atomic
+			mcs->gl[gs2][gb2]++;
+		}
+	}
+	
+  return 0;
+}
 
 
 

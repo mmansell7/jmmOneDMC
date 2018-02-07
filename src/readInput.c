@@ -1,9 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "jmmMCState.h"
 #include "readInput.h"
 
 
-//struct MCInput readInput2(int argc, char *argv[],unsigned long int *N,double *P,double *T,unsigned long int *ns,double * (*phi)(double*,void*),double *ms,
-//		double *mdl,unsigned long int *cpi,unsigned long int *tpi) {
 struct MCInput readInput2() {
 
 	/*	Read input arguments:
@@ -59,8 +60,6 @@ struct MCInput readInput2() {
 	        inp.N = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("N = %lu ",inp.N);
-            printf("\n");
         }
         
         else if ( strncmp(token,"P",10) == 0 ) {
@@ -69,8 +68,6 @@ struct MCInput readInput2() {
                 inp.P = (double) strtod(token,NULL);
                 token = strtok(NULL, s);
             }
-            printf("P = %.5G ",inp.P);
-            printf("\n");
         }
 
         else if ( strncmp(token,"T",10) == 0 ) {
@@ -79,8 +76,6 @@ struct MCInput readInput2() {
                 inp.T = (double) strtod(token,NULL);
                 token = strtok(NULL, s);
             }
-            printf("T = %.5G ",inp.T);
-            printf("\n");
         }
 
         else if ( strncmp(token,"NBN",10) == 0 ) {
@@ -89,8 +84,6 @@ struct MCInput readInput2() {
                 inp.nbn = (int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("NBN = %u ",inp.nbn);
-            printf("\n");
         }
         
         else if ( strncmp(token,"NUMSTEPS",10) == 0 ) {
@@ -99,8 +92,6 @@ struct MCInput readInput2() {
                 inp.ns = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("NUMSTEPS = %lu ",inp.ns);
-            printf("\n");
         }
         
         else if ( strncmp(token,"POT",10) == 0 ) {
@@ -113,8 +104,6 @@ struct MCInput readInput2() {
                 }
                 token = strtok(NULL, s);
             }
-            printf("POT = %s ",inp.potStr);
-            printf("\n");
         }
         
         else if ( strncmp(token,"MAXSTEP",10) == 0 ) {
@@ -123,8 +112,6 @@ struct MCInput readInput2() {
                 inp.maxStep = (double) strtod(token,NULL);
                 token = strtok(NULL, s);
             }
-            printf("MAXSTEP = %.5G ",inp.maxStep);
-            printf("\n");
         }
         
         else if ( strncmp(token,"MAXDV",10) == 0 ) {
@@ -133,8 +120,6 @@ struct MCInput readInput2() {
                 inp.maxdl = (double) strtod(token,NULL);
                 token = strtok(NULL, s);
             }
-            printf("MAXDV = %.5G ",inp.maxdl);
-            printf("\n");
         }
        
         else if ( strncmp(token,"CPI",10) == 0 ) {
@@ -143,8 +128,6 @@ struct MCInput readInput2() {
                 inp.cpi = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("CPI = %lu ",inp.cpi);
-            printf("\n");
         }
        
         else if ( strncmp(token,"TPI",10) == 0 ) {
@@ -153,8 +136,6 @@ struct MCInput readInput2() {
                 inp.tpi = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("TPI = %lu ",inp.tpi);
-            printf("\n");
         }
        
         else if ( strncmp(token,"GPI",10) == 0 ) {
@@ -163,8 +144,6 @@ struct MCInput readInput2() {
                 inp.gpi = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("GPI = %lu ",inp.gpi);
-            printf("\n");
         }
        
         else if ( strncmp(token,"RHOPI",10) == 0 ) {
@@ -173,8 +152,6 @@ struct MCInput readInput2() {
                 inp.rhopi = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("RHOPI = %lu ",inp.rhopi);
-            printf("\n");
         }
        
         else if ( strncmp(token,"RBW",10) == 0 ) {
@@ -183,8 +160,6 @@ struct MCInput readInput2() {
                 inp.rbw = (double) strtod(token,NULL);
                 token = strtok(NULL, s);
             }
-            printf("RBW = %.5G ",inp.rbw);
-            printf("\n");
         }
        
         else if ( strncmp(token,"RHONB",10) == 0 ) {
@@ -193,8 +168,6 @@ struct MCInput readInput2() {
                 inp.rhonb = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("RHONB = %lu ",inp.rhonb);
-            printf("\n");
         }
        
         else if ( strncmp(token,"GBW",10) == 0 ) {
@@ -203,8 +176,6 @@ struct MCInput readInput2() {
                 inp.gbw = (double) strtod(token,NULL);
                 token = strtok(NULL, s);
             }
-            printf("gBW = %.5G ",inp.gbw);
-            printf("\n");
         }
        
         else if ( strncmp(token,"GNB",10) == 0 ) {
@@ -213,8 +184,6 @@ struct MCInput readInput2() {
                 inp.gnb = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("GNB = %lu ",inp.gnb);
-            printf("\n");
         }
        
         else if ( strncmp(token,"GSW",10) == 0 ) {
@@ -223,8 +192,6 @@ struct MCInput readInput2() {
                 inp.gsw = (double) strtod(token,NULL);
                 token = strtok(NULL, s);
             }
-            printf("GSW = %.5G ",inp.gsw);
-            printf("\n");
         }
        
         else if ( strncmp(token,"GNS",10) == 0 ) {
@@ -233,8 +200,6 @@ struct MCInput readInput2() {
                 inp.gns = (int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("GNS = %d ",inp.gns);
-            printf("\n");
         }
         
         else if ( strncmp(token,"SEED",10) == 0 ) {
@@ -243,55 +208,64 @@ struct MCInput readInput2() {
                 inp.seed = (unsigned long int) strtol(token,NULL,10);
                 token = strtok(NULL, s);
             }
-            printf("SEED = %lu ",inp.seed);
-            printf("\n");
+        }
+        
+        else if ( strncmp(token,"ENGCHECK",10) == 0 ) {
+            token = strtok(NULL, s);
+            while( token != NULL ) {
+                inp.eci = (unsigned long int) strtol(token,NULL,10);
+                token = strtok(NULL, s);
+            }
+        }
+        
+        else if ( strncmp(token,"DADJ",10) == 0 ) {
+            token = strtok(NULL, s);
+            while( token != NULL ) {
+                inp.mdai = (unsigned long int) strtol(token,NULL,10);
+                token = strtok(NULL, s);
+            }
+        }
+        
+        else if ( strncmp(token,"VADJ",10) == 0 ) {
+            token = strtok(NULL, s);
+            while( token != NULL ) {
+                inp.mvai = (unsigned long int) strtol(token,NULL,10);
+                token = strtok(NULL, s);
+            }
         }
         
         else {
-            token = strtok(NULL,s);
             printf("Property command %s not understood.\n",token);
         }
 
     }
-
-	/* 
-	*N       = (unsigned long int) strtol(argv[1],NULL,10);
-	*P       = strtod(argv[2],NULL);
-	*T       = strtod(argv[3],NULL);
-	nbn      = (int) strtol(argv[4],NULL,10); 
-	*ns      = (unsigned long int) strtol(argv[5],NULL,10);
-	if (strcmp(argv[6],"lj") == 0) {
-		printf("Using Lennard-Jones potential\n");
-		phi = phiLJ;
-	}
-	else {
-		printf("Unknown potential type requested (%s). Using Lennard-Jones potential.\n",argv[6]);
-		phi = phiLJ;
-	}
-
-	*ms      = (double) strtod(argv[7],NULL);
-	*mdl     = (double) strtod(argv[8],NULL);
-	*cpi     = (unsigned long int) strtol(argv[9],NULL,10);
-	*tpi     = (unsigned long int) strtol(argv[10],NULL,10);
-
-	rbw      = (double) strtod(argv[11],NULL);
-	rhonb    = (unsigned long int) strtol(argv[12],NULL,10);
-	rhopi    = (unsigned long int) strtol(argv[13],NULL,10);
-
-        
-	gsw      = (double) strtod(argv[14],NULL);
-	gns      = (int) strtol(argv[15],NULL,10);
-	gbw      = (double) strtod(argv[16],NULL);
-	gnb      = (unsigned long int) strtol(argv[17],NULL,10);
-	gpi      = (unsigned long int) strtol(argv[18],NULL,10);
-	seed     = (unsigned long int) strtol(argv[19],NULL,10);
-
-	inp.gbw = gbw;
-	inp.gnb = gnb;
-	inp.seed = seed;
-	*/
-		
-        return inp;
+    
+    /*
+    printf("N = %lu\n",inp.N);
+    printf("P = %.5G\n",inp.P);
+    printf("T = %.5G\n",inp.T);
+    printf("NBN = %u\n",inp.nbn);
+    printf("NUMSTEPS = %lu\n",inp.ns);
+    printf("POT = %s\n",inp.potStr);
+    printf("MAXSTEP = %.5G\n",inp.maxStep);
+    printf("MAXDV = %.5G\n",inp.maxdl);
+    printf("ENGCHECK = %.5G\n",inp.eci);
+    printf("DADJ = %.5G\n",inp.mdai);
+    printf("VADJ = %.5G\n",inp.mvai);
+    printf("CPI = %lu\n",inp.cpi);
+    printf("TPI = %lu\n",inp.tpi);
+    printf("GPI = %lu\n",inp.gpi);
+    printf("RHOPI = %lu\n",inp.rhopi);
+    printf("RBW = %.5G\n",inp.rbw);
+    printf("RHONB = %lu\n",inp.rhonb);
+    printf("gBW = %.5G\n",inp.gbw);
+    printf("GNB = %lu\n",inp.gnb);
+    printf("GSW = %.5G\n",inp.gsw);
+    printf("GNS = %d\n",inp.gns);
+    printf("SEED = %lu\n",inp.seed);
+    */
+    
+    return inp;
 	
 
 
