@@ -1,7 +1,7 @@
 
 struct MCState;
 struct MCState * setupMCS();
-void mcsPrintStep(struct MCState *);
+void mcs_printStep(struct MCState *);
 int printMCP(struct MCState *mcs1);
 int mcs_printThermo(struct MCState *mcs);
 int mcs_printCoords(struct MCState *mcs);

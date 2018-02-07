@@ -319,7 +319,7 @@ struct MCState * setupMCS(struct MCInput inp) {
 }
 
 
-void mcsPrintStep(struct MCState *mcs) {
+void mcs_printStep(struct MCState *mcs) {
 	printf("Step: %lu...\n",mcs->sn);
 }
 
@@ -328,8 +328,6 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	// Full attempt, displacement
 	unsigned long int ii,jj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13,ran;
-	
-	
 
 	#pragma omp single
 	{
@@ -387,7 +385,7 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			jj            = mcs->jjj[ind];
 			mcs->rijTrial[ind] = mcs->rTrial[jj] - mcs->rTrial[ii];
 //			printf("ii,jj,rij = %lu,%lu, %.5G\n",ii,jj,rijTrial[ind]);
-			if (mcs->nbn >= 0 && jj-ii <= mcs->nbn) {
+			if (mcs->nbn >= 0 && jj-ii > mcs->nbn) {
 				mcs->e6ijTrial[ind]     = 0;
 				mcs->e12ijTrial[ind]    = 0;
 				mcs->vir6ijTrial[ind]   = 0;
@@ -411,7 +409,7 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 				mcsVir6Trial   += mcs->vir6ijTrial[ind];
 				mcsVir12Trial  += mcs->vir12ijTrial[ind];
 			}
-
+                        //printf("eSum,e6,e12[%lu][%lu]Trial = %.5G,%.5G,%.5G\n",ii,jj,mcs->e12ijTrial[ind]-mcs->e6ijTrial[ind],mcs->e6ijTrial[ind],mcs->e12ijTrial[ind]);
 		}
 //		printf("Done with for loop\n");
 		
@@ -722,7 +720,7 @@ int mcs_qad(struct MCState *mcs) {
 			dj = ii - mcs->nm - 1;
 			ind = mcs->indind[mcs->nm][dj];
 			mcs->rijTrial[ind] = mcs->rij[ind] - mcs->md;
-			if (dj >= mcs->nbn) {
+			if ( mcs->nbn >= 0 && dj >= mcs->nbn ) {
 				mcs->e6ijTrial[ind]    = 0;
 				mcs->e12ijTrial[ind]   = 0;
 				mcs->vir6ijTrial[ind]  = 0;
@@ -974,7 +972,7 @@ int mcs_qav(struct MCState *mcs) {
 
 unsigned long int mcs_incrementStep(struct MCState *mcs) {
   int flag = 0;
-  const int stepPrintInterval = 1;
+  const int stepPrintInterval = 10000;
   
   if (mcs->sn == mcs->numSteps) {
     return 0;
@@ -986,8 +984,7 @@ unsigned long int mcs_incrementStep(struct MCState *mcs) {
     mcs->sn++;
     
     if (mcs->sn % stepPrintInterval == 0) {
-      printf("Step: %lu...\n",mcs->sn);
-      //fflush(stdout);
+        mcs_printStep(mcs);
     }
     }
     return mcs->sn;
@@ -1007,19 +1004,19 @@ int mcs_Step(struct MCState *mcs) {
   {
   mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->N+1);
   mcs->rn = gsl_rng_uniform(mcs->rangen);
-  printf("nm: %lu, rn: %.5G...\n",mcs->nm,mcs->rn);
+  //printf("nm: %lu, rn: %.5G...\n",mcs->nm,mcs->rn);
   fflush(stdout);
   }
   #pragma omp barrier
 
   if (mcs->nm < mcs->N) {
-    printf("Executing mcs_qad(mcs)...\n");
-    fflush(stdout);
+    //printf("Executing mcs_qad(mcs)...\n");
+    //fflush(stdout);
     mcs_qad(mcs);
   }
   else {
-    printf("Executing mcs_qav(mcs)...\n");
-    fflush(stdout);
+    //printf("Executing mcs_qav(mcs)...\n");
+    //fflush(stdout);
     mcs_qav(mcs);
   }
   
@@ -1153,6 +1150,7 @@ int mcs_ECheck(struct MCState *mcs) {
   unsigned long int iq,ii,jj;
   double rij1,rij3,rij6,rij12;
   
+  mcsETest = 0;
   #pragma omp for private(iq,ii,jj,rij1,rij3,rij6,rij12) reduction(+:mcsETest)
   for (iq = 0; iq < mcs->numPairs; iq++) {
     ii = mcs->iii[iq];
@@ -1200,7 +1198,7 @@ int mcs_maxDisAdjust(struct MCState *mcs) {
     dAErrNtot = mcs->dAcc[0] + mcs->dAcc[1];
     actualRatio = (double) mcs->dAcc[0] / (mcs->dAcc[0] + mcs->dAcc[1]);
     mcs->maxStep = mcs->maxStep*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
-    printf("Step: %lu  dAcc: %lu,%lu   maxStep: %.5G\n",mcs->sn,mcs->dAcc[0],mcs->dAcc[1],mcs->maxStep);
+    printf("Step: %lu  Updating max Step...dAcc: %lu,%lu   new maxStep: %.5G\n",mcs->sn,mcs->dAcc[0],mcs->dAcc[1],mcs->maxStep);
   }
     
   return 0;
@@ -1215,7 +1213,7 @@ int mcs_maxDVAdjust(struct MCState *mcs) {
     vAErrNtot = mcs->vAcc[0] + mcs->vAcc[1];
     actualRatio = (double) mcs->vAcc[0] / (mcs->vAcc[0] + mcs->vAcc[1]);
     mcs->maxdl = mcs->maxdl*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
-    printf("Step: %lu  vAcc: %lu,%lu   maxStep: %.5G\n",mcs->sn,mcs->vAcc[0],mcs->vAcc[1],mcs->maxdl);
+    printf("Step: %lu  Updating max vol.ch....vAcc: %lu,%lu   new maxStep: %.5G\n",mcs->sn,mcs->vAcc[0],mcs->vAcc[1],mcs->maxdl);
   }
   
   return 0;

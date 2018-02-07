@@ -54,7 +54,7 @@ int main (int argc, char *argv[]) {
     {
     printf("Running with %d threads...\n\n",omp_get_num_threads());
     
-    mcsPrintStep(mcs);
+    mcs_printStep(mcs);
     fflush(stdout);
     }
     unsigned long int ddd = 0;
@@ -87,9 +87,6 @@ int main (int argc, char *argv[]) {
         #pragma omp barrier
         mcs_Step(mcs);
         #pragma omp barrier
-        printf("Out of mcs_Step...\n");
-        #pragma omp barrier
-        fflush(stdout);
         
         //#pragma omp barrier
         //#pragma omp sections private(ii,jj,dj,ind) nowait
