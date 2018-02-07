@@ -55,7 +55,7 @@ int main (int argc, char *argv[]) {
     printf("Running with %d threads...\n\n",omp_get_num_threads());
     
     // Print the step number to stdout
-    mcs_printStep(mcs);
+    printStep(mcs);
     }
     
     // In order to calculate initial energy, etc., step 0 is a "trial move"
@@ -65,7 +65,7 @@ int main (int argc, char *argv[]) {
     //  a trial displacement of precisely 0).
     unsigned long int nnn = 0;
     double ddd = 0.5;
-    mcs_fad(mcs,&nnn,&ddd);
+    fad(mcs,&nnn,&ddd);
     
     // The following "sections" are each executed by a single thread, in 
     //  parallel with the other sections.
@@ -74,29 +74,29 @@ int main (int argc, char *argv[]) {
         #pragma omp section
         {
         // Print coordinates at current step to the configuration file.
-        mcs_printCoords(mcs);
+        printCoords(mcs);
         }
         
         #pragma omp section
         {
         // Print density bin populations at current step to the rho file.
-        mcs_printRho(mcs);
+        printRho(mcs);
         }
         
         #pragma omp section
         {
         // Accumulate thermodynamic parameters at step 0.  Accumulators are used to
         //   calculate block averages at the end of each block. 
-        mcs_updateThermo(mcs);
+        updateThermo(mcs);
 
         // Print step 0 thermodynamics to the thermo output file.
-        mcs_printThermo(mcs);
+        printThermo(mcs);
         }
     }
     
     // Print g(r) or two-particle density bin populations to the g#.dat files.
     //   Note that the mcs_printG function is executed by all threads in parallel.
-    mcs_printG(mcs);
+    printG(mcs);
     
     
     // ############################### MC LOOP #######################################
@@ -105,10 +105,10 @@ int main (int argc, char *argv[]) {
            //  number, returning 1 if the maximum step number has been
            //  reached, and 0 otherwise.  All other threads wait until the check
            //  has completed, so that all threads always return the same value.
-    while ( mcs_incrementStep(mcs) ) {
+    while ( incrementStep(mcs) ) {
         #pragma omp barrier
         // Perform a Monte Carlo step, updating the systems state appropriately.
-        mcs_Step(mcs);
+        Step(mcs);
         #pragma omp barrier
         
         //#pragma omp barrier
@@ -121,46 +121,46 @@ int main (int argc, char *argv[]) {
         //#pragma omp section
         #pragma omp single
         {
-        if ( mcs_isCoordPrint(mcs) ) {
-            mcs_printCoords(mcs);
+        if ( isCoordPrint(mcs) ) {
+            printCoords(mcs);
         }
         }
 
         //#pragma omp section
         #pragma omp single
         {
-        if ( mcs_isThermoPrint(mcs) ) {
-            mcs_printThermo(mcs);
+        if ( isThermoPrint(mcs) ) {
+            printThermo(mcs);
         }
         }
         
         //#pragma omp section
         #pragma omp single
         {
-        if ( mcs_isRhoPrint(mcs) ) {
-            mcs_printRho(mcs);
+        if ( isRhoPrint(mcs) ) {
+            printRho(mcs);
         }
         }
         
         //#pragma omp section
         #pragma omp single
         {
-        if ( mcs_isMaxDisAdjust(mcs) ) {
-             mcs_maxDisAdjust(mcs);
+        if ( isMaxDisAdjust(mcs) ) {
+             maxDisAdjust(mcs);
         }
         }
         
         //#pragma omp section
         #pragma omp single
         {
-        if ( mcs_isMaxDVAdjust(mcs) ) {
-            mcs_maxDVAdjust(mcs);
+        if ( isMaxDVAdjust(mcs) ) {
+            maxDVAdjust(mcs);
         }
         }
         }
         
-        if ( mcs_isGPrint(mcs) ) {
-            mcs_printG(mcs);
+        if ( isGPrint(mcs) ) {
+            printG(mcs);
         }
         
         fflush(stdout);
@@ -172,8 +172,8 @@ int main (int argc, char *argv[]) {
 }
 
 	printf("\nPROGRAM COMPLETED SUCCESSFULLY!\n");
-	mcs_printE(mcs);
-        mcs_printAcc(mcs);
+	printE(mcs);
+        printAcc(mcs);
         return 0;
 
 }

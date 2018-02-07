@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <gsl/gsl_rng.h>
+#include <string.h>
 #include "jmmMCState.h"
+#include "pot.h"
 
 // Some file-global variables (available to all functions defined in this
 //  file, but not to functions defined in other files) are necessary
@@ -9,7 +11,7 @@
 //  cannot be used for this purpose.
 static double mcsETest,mcsETrial,mcsE6Trial,mcsE12Trial,mcsVirTrial,mcsVir6Trial,mcsVir12Trial;
 static double mcsdE6,mcsdE12,mcsdE,mcsdVir6,mcsdVir12,mcsdVir,ran;
-static double *rijTest,*e6ijTest,*e12ijTest;
+static double *rijTest,*eijTest,*e6ijTest,*e12ijTest;
 static long int gs11,gs12;
 
 // IMPORTANT. Define the MCState struct. This struct holds the state of the system
@@ -53,7 +55,6 @@ struct MCState {
   double T;                        // Temperature (reduced units)
   double maxStep;                  // Maximum trial displacement length
   double maxdl;                    // Maximum volume change trial
-  double * (*phi)(double *rij,void *params);         // Pointer to the potential function
   double E;                        // Energy
   double dE;                       // Change in E for current trial
   double ETrial;                   // E for current trial
@@ -111,14 +112,18 @@ struct MCState {
                                    //   + j - 1.
                                     
   double *rijTrial;                // rij for current trial
+  double *eij;                   // Vector of pair contributions to E12
+  double *eijTrial;              // e12ij for current trial
   double *e12ij;                   // Vector of pair contributions to E12
   double *e12ijTrial;              // e12ij for current trial
   double *e6ij;                    // Vector of pair contributions to E6
   double *e6ijTrial;               // e6ij for current trial 
-  double *vir6ij;                  // Vector of pair contributions to Vir6
-  double *vir6ijTrial;             // vir6ij for current trial
+  double *virij;                  // Vector of pair contributions to Vir6
+  double *virijTrial;             // vir6ij for current trial
   double *vir12ij;                 // Vector of pair contributions to Vir12
   double *vir12ijTrial;            // vir12ij for current trial
+  double *vir6ij;                  // Vector of pair contributions to Vir6
+  double *vir6ijTrial;             // vir6ij for current trial
 
   unsigned long int *iii;          // Vector of iii values for each pair.  iii[ind] is the index
                                    //   of the first particle in the pair.
@@ -144,6 +149,15 @@ struct MCState {
   double **gM;                     // Two-dimensional array with mean g(r) in each segment and bin
                                    //   for the current g(r) block
   gsl_rng * rangen;                // Random number generator
+  
+  
+  char potStr[20];                 // String defining the potential type
+  double * (*phi)(double *rij,     // Pointer to the
+      void *params);               //   interparticle potential function
+  int (*qad)(struct MCState *,     // Pointer a potential-specific, quicker,
+     unsigned long int *nm,double *d);  // displacement trial function
+  int (*qav)(struct MCState *);    // Pointer to a potential-specific, quicker,
+                                   //   volume change trial function
 };
 
 
@@ -152,7 +166,8 @@ struct MCState {
 int printMCP(struct MCState *mcs1) {
 	printf("Printing Monte Carlo parameters...\n");
         printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
-	if ( mcs1->nbn > 0 ) {
+	printf("Potential: %s\n",mcs1->potStr);
+        if ( mcs1->nbn > 0 ) {
 		printf("Number of neighbors with which each particle can interact: %d\n",mcs1->nbn);
 	}
 	else {
@@ -197,13 +212,46 @@ struct MCState * setupMCS(struct MCInput inp) {
 	mcs->rhonb      = inp.rhonb;
 	mcs->maxStep    = inp.maxStep;
 	mcs->maxdl      = inp.maxdl;
-	mcs->phi        = inp.phi;
 	mcs->rbw        = inp.rbw;
 	mcs->gsw        = inp.gsw;
 	mcs->gbw        = inp.gbw;
 	mcs->gns        = inp.gns;
 	mcs->seed       = inp.seed;
-
+        strncpy(mcs->potStr,inp.potStr,20);
+        if ( strncmp(mcs->potStr,"LJ",10) == 0 ) {
+            mcs->phi        = &phiLJ;
+            mcs->qad        = &qad2;
+            mcs->qav        = &qavLJ;
+	    mcs->E6         = -5E10;
+	    mcs->E12        = 5E10;
+	    mcs->Vir6       = -5E10;
+	    mcs->Vir12      = 5E10;
+            mcs->eij        = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->virij      = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->eijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->virijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
+            eijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
+            e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
+            e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
+        }
+        else if ( strncmp(mcs->potStr,"HARMONIC",10) ) {
+            mcs->phi        = phiHarmonic;
+            mcs->qad        = fad;
+            mcs->qav        = fav;
+        }
+        else {
+            printf("FATAL ERROR: Unknown potential.\nABORTING SIMULATION\n\n");
+            return NULL;
+        }
+        
 	printMCP(mcs);
 	
 	// Initialize the "steps since last x" variables to -1 so that
@@ -217,11 +265,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         
         // Initialize energy and virial terms to large values
 	mcs->E          = 10E10;
-	mcs->E6         = -5E10;
-	mcs->E12        = 5E10;
 	mcs->Vir        = 10E10;
-	mcs->Vir6       = -5E10;
-	mcs->Vir12      = 5E10;
 	mcs->md         = 0;
 	
         // Initialize box size based on number of particles.
@@ -249,23 +293,13 @@ struct MCState * setupMCS(struct MCInput inp) {
         // Set up arrays defining particles and pairs
         mcs->r          = (double *) malloc(mcs->N*sizeof(double));
         mcs->rij        = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
         
         // Initialize arrays defining trial particles and pairs
         mcs->rTrial         = (double *) malloc(mcs->N*sizeof(double));
         mcs->rijTrial       = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
-        mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
 
         // Initialize arrays used to double-check the system energy
         rijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
-        e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
-        e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
 	
         // Initialize arrays used to convert between particle identifiers, ii and jj, -
         //  and pair identifier, ind.
@@ -339,10 +373,10 @@ struct MCState * setupMCS(struct MCInput inp) {
         
         // Perform a full calculation of the current density and g(r) or two-
         //  particle density histogram.
-        mcs_fgrho(mcs);
+        fgrho(mcs);
         
         // Update the density and g(r) accumulators.
-        mcs_ugrho(mcs);
+        ugrho(mcs);
         
         // Create the random number generator for the system.
 	mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
@@ -360,7 +394,7 @@ struct MCState * setupMCS(struct MCInput inp) {
 
 
 // Print the current step
-void mcs_printStep(struct MCState *mcs) {
+void printStep(struct MCState *mcs) {
     printf("Step: %lu...\n",mcs->sn);
     fflush(stdout);
 }
@@ -368,9 +402,11 @@ void mcs_printStep(struct MCState *mcs) {
 
 // Do a full attempted trial displacement (no short-cuts to calculate the
 //  energy using knowledge of the previous state).
-void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
+int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	unsigned long int ii,jj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13,ran;
+	double *phiij,params[2];
+	params[0] = 1;
 
 	#pragma omp single
 	{
@@ -412,12 +448,15 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	fflush(stdout);
 	}
 	
+	mcsETrial      = mcs->ETrial;
 	mcsE6Trial     = mcs->E6Trial;
 	mcsE12Trial    = mcs->E12Trial;
+	mcsVirTrial    = mcs->VirTrial;
 	mcsVir6Trial   = mcs->Vir6Trial;
 	mcsVir12Trial  = mcs->Vir12Trial;
 	
 	if (mcs->bndchk == 0) {
+		params[1] = mcs->l;
 		#pragma omp for private(ii,jj,ind,rij1,rij3,rij6,rij7,rij12,rij13) \
 				reduction(+:mcsE6Trial,mcsE12Trial,mcsVir6Trial,mcsVir12Trial)
 		for (ind = 0; ind < mcs->numPairs; ind++) {
@@ -425,40 +464,48 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			jj            = mcs->jjj[ind];
 			mcs->rijTrial[ind] = mcs->rTrial[jj] - mcs->rTrial[ii];
 			if (mcs->nbn >= 0 && jj-ii > mcs->nbn) {
+				mcs->eijTrial[ind]      = 0;
 				mcs->e6ijTrial[ind]     = 0;
 				mcs->e12ijTrial[ind]    = 0;
+				mcs->virijTrial[ind]    = 0;
 				mcs->vir6ijTrial[ind]   = 0;
 				mcs->vir12ijTrial[ind]  = 0;	
 			}
 			else {
 				rij1          = mcs->rijTrial[ind];
-				rij3          = rij1*rij1*rij1;
-				rij6          = 1/(rij3*rij3);
-				rij7          = rij6/rij1;
-				rij12         = rij6*rij6;
-				rij13         = rij12/rij1;
-	
-				mcs->e6ijTrial[ind]     = 4*rij6;
-				mcs->e12ijTrial[ind]    = 4*rij12;
-				mcs->vir6ijTrial[ind]   = 24/mcs->l*rij6;
-				mcs->vir12ijTrial[ind]  = 48/mcs->l*rij12;
-			
+				//rij3          = rij1*rij1*rij1;
+				//rij6          = 1/(rij3*rij3);
+				//rij7          = rij6/rij1;
+				//rij12         = rij6*rij6;
+				//rij13         = rij12/rij1;
+				
+				phiij = mcs->phi(&rij1,params);
+				mcs->eijTrial[ind]   = phiij[0];
+				mcs->e12ijTrial[ind] = phiij[2];
+                                mcs->e6ijTrial[ind] = phiij[4];
+                                mcs->virijTrial[ind] = phiij[1];
+				mcs->vir12ijTrial[ind] = phiij[3];
+				mcs->vir6ijTrial[ind] = phiij[5];
+				
+				mcsETrial     += mcs->eijTrial[ind];
 				mcsE6Trial     += mcs->e6ijTrial[ind];
 				mcsE12Trial    += mcs->e12ijTrial[ind];
+				mcsVirTrial   += mcs->virijTrial[ind];
 				mcsVir6Trial   += mcs->vir6ijTrial[ind];
 				mcsVir12Trial  += mcs->vir12ijTrial[ind];
 			}
 		}
 		
+		mcs->ETrial      = mcsETrial;
 		mcs->E6Trial     = mcsE6Trial;
 		mcs->E12Trial    = mcsE12Trial;
+		mcs->VirTrial    = mcsVirTrial;
 		mcs->Vir6Trial   = mcsVir6Trial;
 		mcs->Vir12Trial  = mcsVir12Trial;
 		
 		
 		#pragma omp single
 		{
-		mcs->ETrial = mcs->E12Trial - mcs->E6Trial;
 
 		if (mcs->ETrial > mcs->E ) {
 			ran = gsl_rng_uniform(mcs->rangen);
@@ -470,15 +517,17 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			mcs->E     = mcs->ETrial;
 			mcs->E6    = mcs->E6Trial;
 			mcs->E12   = mcs->E12Trial;
+			mcs->Vir   = mcs->VirTrial;
 			mcs->Vir6  = mcs->Vir6Trial;
 			mcs->Vir12 = mcs->Vir12Trial;
-			mcs->Vir = mcs->N*mcs->T/mcs->l + mcs->Vir12 - mcs->Vir6;
 			mcs->r[mcs->nm] = mcs->rTrial[mcs->nm];
 			fflush(stdout);
 			for (ind = 0; ind < mcs->numPairs; ind++) {
 				mcs->rij[ind]     = mcs->rijTrial[ind];
+				mcs->eij[ind]     = mcs->eijTrial[ind];
 				mcs->e6ij[ind]    = mcs->e6ijTrial[ind];
 				mcs->e12ij[ind]   = mcs->e12ijTrial[ind];
+				mcs->virij[ind]   = mcs->virijTrial[ind];
 				mcs->vir6ij[ind]  = mcs->vir6ijTrial[ind];
 				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
 			}
@@ -489,12 +538,13 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 		}
 	}
 	fflush(stdout);
+	return 0;
 	#pragma omp barrier
 }
 
 
 // Print coordinates of all particles in the system
-int mcs_printCoords(struct MCState *mcs) {
+int printCoords(struct MCState *mcs) {
         unsigned long int ind;
         fprintf(mcs->cf,"%lu\nStep no.: %lu  Box length: %.5f\n",mcs->N,mcs->sn,mcs->l);
         fflush(mcs->cf);
@@ -508,7 +558,7 @@ int mcs_printCoords(struct MCState *mcs) {
 
 
 // Print the density histogram
-int mcs_printRho(struct MCState *mcs) {
+int printRho(struct MCState *mcs) {
 
         unsigned long int rb,ns;
         ns = (mcs->sn - mcs->slrho);
@@ -529,7 +579,7 @@ int mcs_printRho(struct MCState *mcs) {
 
 
 // Print the g(x) histograms
-int mcs_printG(struct MCState *mcs) {
+int printG(struct MCState *mcs) {
   
 	int gs;
 	unsigned long int gb,ns;
@@ -556,7 +606,7 @@ int mcs_printG(struct MCState *mcs) {
   
 // Do a full calculation of density and g(x), not using any knowledge of the
 //  distributions at the previous step.
-int mcs_fgrho(struct MCState *mcs) {
+int fgrho(struct MCState *mcs) {
 
 	unsigned long int ii,jj,ind;
 	long int rb,gs1,gs2,gb;
@@ -618,7 +668,7 @@ int mcs_fgrho(struct MCState *mcs) {
 
 
 // Accumulate density and g(x)
-int mcs_ugrho(struct MCState *mcs) {
+int ugrho(struct MCState *mcs) {
 
 	unsigned long int rb,gb;
 	unsigned int gs;
@@ -641,15 +691,34 @@ int mcs_ugrho(struct MCState *mcs) {
 
 // Quickly attempt a displacement trial, using knowledge of the state at the
 //  previous step. Update the state according to the outcome of the trial.
-int mcs_qad(struct MCState *mcs) {
+int qad(struct MCState *mcs,unsigned long int *nm, double *d) {
+        int ii = mcs->qad(mcs,nm,d);
+        return ii;
+}
 
+
+int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
+        
 	unsigned long int ii,jj,dj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13;
-        
-	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
-	
+        double *phiij,params[2];
+
 	#pragma omp single
 	{
+	if ( nm == NULL) {
+		mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->N);
+	}
+	else {
+		mcs->nm = *nm;
+	}
+	if ( d == NULL ) {
+		mcs->rn = gsl_rng_uniform(mcs->rangen);
+	}
+	else {
+		mcs->rn = *d;
+	}
+
+	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
 	mcs->rTrial[mcs->nm] = mcs->r[mcs->nm] + mcs->md;
 	}
 	
@@ -659,7 +728,202 @@ int mcs_qad(struct MCState *mcs) {
 		mcs->dAcc[1]++;
 		}
 	}
+	else {
+		#pragma omp single
+		{
+		mcsdE = 0;
+		mcsdE6 = 0;
+		mcsdE12 = 0;
+		mcsdVir = 0;
+		mcsdVir6 = 0;
+		mcsdVir12 = 0;
+		params[0] = 1;
+		params[1] = mcs->l;
+		}
+		
+		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE,mcsdE6,mcsdE12,mcsdVir,mcsdVir6,mcsdVir12) nowait
+		for (ii = 0; ii < mcs->nm; ii++) {
+			dj = mcs->nm - ii - 1;
+			ind = mcs->indind[ii][dj];
+			mcs->rijTrial[ind] = mcs->rij[ind] + mcs->md;
+			if ( mcs->nbn >= 0 && dj >= mcs->nbn ) {
+				mcs->eijTrial[ind] = 0;
+                                mcs->e6ijTrial[ind] = 0;
+				mcs->e12ijTrial[ind] = 0;
+				mcs->virijTrial[ind] = 0;
+				mcs->vir6ijTrial[ind] = 0;
+				mcs->vir12ijTrial[ind] = 0;
+			}
+			else {
+				rij1 = mcs->rijTrial[ind];
+				//rij3 = rij1*rij1*rij1;
+				//rij6 = 1/(rij3*rij3);
+				//rij7 = rij6/rij1;
+				//rij12 = rij6*rij6;
+				//rij13 = rij12/rij1;
+				phiij = mcs->phi(&rij1,params);
+				mcs->eijTrial[ind]   = phiij[0];
+				mcs->e12ijTrial[ind] = phiij[2];
+                                mcs->e6ijTrial[ind] = phiij[4];
+                                mcs->virijTrial[ind] = phiij[1];
+				mcs->vir12ijTrial[ind] = phiij[3];
+				mcs->vir6ijTrial[ind] = phiij[5];
+			}
+			mcsdE   = mcsdE - mcs->eij[ind] + mcs->eijTrial[ind];
+			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
+			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
+			mcsdVir = mcsdVir - mcs->virij[ind] + mcs->virijTrial[ind];
+			mcsdVir6 = mcsdVir6 - mcs->vir6ij[ind] + mcs->vir6ijTrial[ind];
+			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
+		}
+
+		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12)
+		for (ii = mcs->nm + 1; ii < mcs->N; ii++) {
+			dj = ii - mcs->nm - 1;
+			ind = mcs->indind[mcs->nm][dj];
+			mcs->rijTrial[ind] = mcs->rij[ind] - mcs->md;
+			if ( mcs->nbn >= 0 && dj >= mcs->nbn ) {
+				mcs->eijTrial[ind] = 0;
+                                mcs->e6ijTrial[ind] = 0;
+				mcs->e12ijTrial[ind] = 0;
+				mcs->virijTrial[ind] = 0;
+				mcs->vir6ijTrial[ind] = 0;
+				mcs->vir12ijTrial[ind] = 0;
+			}
+			else {
+				rij1 = mcs->rijTrial[ind];
+				//rij3 = rij1*rij1*rij1;
+				//rij6 = 1/(rij3*rij3);
+				//rij7 = rij6/rij1;
+				//rij12 = rij6*rij6;
+				//rij13 = rij12/rij1;
+				phiij = mcs->phi(&rij1,params);
+				mcs->eijTrial[ind]   = phiij[0];
+				mcs->e12ijTrial[ind] = phiij[2];
+                                mcs->e6ijTrial[ind] = phiij[4];
+                                mcs->virijTrial[ind] = phiij[1];
+				mcs->vir12ijTrial[ind] = phiij[3];
+				mcs->vir6ijTrial[ind] = phiij[5];
+			}
+			mcsdE   = mcsdE - mcs->eij[ind] + mcs->eijTrial[ind];
+			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
+			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
+			mcsdVir = mcsdVir - mcs->virij[ind] + mcs->virijTrial[ind];
+			mcsdVir6 = mcsdVir6 - mcs->vir6ij[ind] + mcs->vir6ijTrial[ind];
+			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
+		}
+		
+		#pragma omp barrier  // THIS BARRIER IS CRITICAL TO CALCULATE dE ACCURATELY (I DO NOT UNDERSTAND WHY THAT SHOULD BE THE CASE)
+		
+		#pragma omp single
+		{
+		mcs->dE = mcsdE;
+                mcs->dE12 = mcsdE12;
+		mcs->dE6 = mcsdE6;
+		mcs->dVir = mcsdVir;
+		mcs->dVir12 = mcsdVir12;
+		mcs->dVir6 = mcsdVir6;
+		}
+		
+		if (mcs->dE > 0 ) {
+		#pragma omp single
+		{
+			ran = gsl_rng_uniform(mcs->rangen);
+			mcs->bf = exp(-mcs->dE/mcs->T);
+		}
+		}
+		
+		if (mcs->dE <= 0 || mcs->bf > ran) {
+			#pragma omp single
+			{
+			mcs->dAcc[0]++;
+			mcs->E      += mcs->dE;
+			mcs->E6     += mcs->dE6;
+			mcs->E12    += mcs->dE12;
+			mcs->Vir    += mcs->dVir;
+			mcs->Vir6   += mcs->dVir6;
+			mcs->Vir12  += mcs->dVir12;
+			mcs->r[mcs->nm] = mcs->rTrial[mcs->nm];
+			}
+			
+			#pragma omp for private(jj,dj,ind) nowait
+			for (jj = 0; jj < mcs->nm; jj++) {
+				dj = mcs->nm - jj - 1;
+				ind = mcs->indind[jj][dj];
+				mcs->rij[ind] = mcs->rijTrial[ind];
+				mcs->eij[ind] = mcs->eijTrial[ind];
+				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
+				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
+				mcs->virij[ind] = mcs->virijTrial[ind];
+				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
+				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+			}
+			#pragma omp for private(jj,dj,ind)
+			for (jj = mcs->nm + 1; jj < mcs->N; jj++) {
+				dj = jj - mcs->nm - 1;
+				ind = mcs->indind[mcs->nm][dj];
+				mcs->rij[ind] = mcs->rijTrial[ind];
+				mcs->eij[ind] = mcs->eijTrial[ind];
+				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
+				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
+				mcs->virij[ind] = mcs->virijTrial[ind];
+				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
+				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+			}
+			
+                        // Short-cut calculation of density and g(x)
+			qagrho(mcs);
+			
+		}
+		else {
+		#pragma omp single
+		{
+			mcs->dAcc[1]++;
+		}
+		}
+	}
 	
+        // Accumulate density and g(x)
+	ugrho(mcs);
+	
+        fflush(stdout);
+	#pragma omp barrier
+
+	return 0;
+}
+
+
+/*
+int qadLJ(struct MCState *mcs,unsigned long int *nm, double *d) {
+        
+	unsigned long int ii,jj,dj,ind;
+	double rij1,rij3,rij6,rij7,rij12,rij13;
+        
+	#pragma omp single
+	{
+	if ( nm == NULL) {
+		mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->N);
+	}
+	else {
+		mcs->nm = *nm;
+	}
+	if ( d == NULL ) {
+		mcs->rn = gsl_rng_uniform(mcs->rangen);
+	}
+	else {
+		mcs->rn = *d;
+	}
+
+	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
+	mcs->rTrial[mcs->nm] = mcs->r[mcs->nm] + mcs->md;
+	}
+	
+	if (fabs(mcs->rTrial[mcs->nm]) > mcs->l/2.0) {
+		#pragma omp single
+		{
+		mcs->dAcc[1]++;
+		}
+	}
 	else {
 		#pragma omp single
 		{
@@ -779,7 +1043,7 @@ int mcs_qad(struct MCState *mcs) {
 			}
 			
                         // Short-cut calculation of density and g(x)
-			mcs_qagrho(mcs);
+			qagrho(mcs);
 			
 		}
 		else {
@@ -791,19 +1055,24 @@ int mcs_qad(struct MCState *mcs) {
 	}
 	
         // Accumulate density and g(x)
-	mcs_ugrho(mcs);
+	ugrho(mcs);
 	
         fflush(stdout);
 	#pragma omp barrier
 
 	return 0;
 }
-
+*/
 
 // Quickly attempt a volume change trial, using knowledge of the state at the
 //  previous step. Update the state according to the outcome of the trial.
-int mcs_qav(struct MCState *mcs) {
+int qav(struct MCState *mcs) {
+        int ii = mcs->qav(mcs);
+        return ii;
+}
+
 	
+int qavLJ(struct MCState *mcs) {
 	unsigned long int ii,ind;
 	double dQ,ran,lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
 	
@@ -855,7 +1124,7 @@ int mcs_qav(struct MCState *mcs) {
 			mcs->vir12ij[ind] = lRat13*mcs->vir12ij[ind];
 		}
 		
-		mcs_fgrho(mcs);
+		fgrho(mcs);
 	}
 	
 	else {
@@ -864,7 +1133,7 @@ int mcs_qav(struct MCState *mcs) {
 		mcs->vAcc[1]++;
 		}
 	}
-	mcs_ugrho(mcs);
+	ugrho(mcs);
 	fflush(stdout);
 
 	return 0;
@@ -872,7 +1141,7 @@ int mcs_qav(struct MCState *mcs) {
 
 
 // Increment the state's current step
-unsigned long int mcs_incrementStep(struct MCState *mcs) {
+unsigned long int incrementStep(struct MCState *mcs) {
   int flag = 0;
   const int stepPrintInterval = 10000;
   
@@ -886,7 +1155,7 @@ unsigned long int mcs_incrementStep(struct MCState *mcs) {
     mcs->sn++;
     
     if (mcs->sn % stepPrintInterval == 0) {
-        mcs_printStep(mcs);
+        printStep(mcs);
     }
     }
     return mcs->sn;
@@ -896,7 +1165,7 @@ unsigned long int mcs_incrementStep(struct MCState *mcs) {
 
 
 // Attempt a Monte Carlo step on the state.
-int mcs_Step(struct MCState *mcs) {
+int Step(struct MCState *mcs) {
   #pragma omp barrier
   #pragma omp single
   {
@@ -910,11 +1179,11 @@ int mcs_Step(struct MCState *mcs) {
   //  do a volume change trial.
   if (mcs->nm < mcs->N) {
     // Do a trial displacement on particle nm
-    mcs_qad(mcs);
+    qad(mcs,&(mcs->nm),&(mcs->rn));
   }
   else {
     // Do a volume change trial
-    mcs_qav(mcs);
+    qav(mcs);
   }
   
   // At appropriate steps, double-check that the energy has not been
@@ -923,11 +1192,11 @@ int mcs_Step(struct MCState *mcs) {
   //  previous step.  Therefore, if a step's energy is calculated
   //  incorrectly, all subsequent steps will be calculated incorrectly
   //  until corrected.)
-  if (mcs_isECheck(mcs) ) {
-    mcs_ECheck(mcs);
+  if (isECheck(mcs) ) {
+    ECheck(mcs);
   }
   
-  mcs_updateThermo(mcs);
+  updateThermo(mcs);
   fflush(stdout);
 
   return 0;
@@ -936,7 +1205,7 @@ int mcs_Step(struct MCState *mcs) {
 
 
 // Check if this is a step at which coordinates should be printed
-int mcs_isCoordPrint(struct MCState *mcs) {
+int isCoordPrint(struct MCState *mcs) {
   if ( mcs->sn % mcs->cpi == 0 ) {
     return 1;
   }
@@ -946,7 +1215,7 @@ int mcs_isCoordPrint(struct MCState *mcs) {
 }
 
 // Check if this is a step at which thermodynamic parameters should be printed
-int mcs_isThermoPrint(struct MCState *mcs ) {
+int isThermoPrint(struct MCState *mcs ) {
   if ( mcs->sn % mcs->tpi == 0 ) {
     return 1;
   }
@@ -957,7 +1226,7 @@ int mcs_isThermoPrint(struct MCState *mcs ) {
 
 
 // Check if this is a step at which density should be printed
-int mcs_isRhoPrint(struct MCState *mcs) {
+int isRhoPrint(struct MCState *mcs) {
   if ( mcs->sn % mcs->rhopi == 0 ) {
     return 1;
   }
@@ -968,7 +1237,7 @@ int mcs_isRhoPrint(struct MCState *mcs) {
 }
 
 // Check if this is a step at which g(x) should be printed
-int mcs_isGPrint(struct MCState *mcs) {
+int isGPrint(struct MCState *mcs) {
   if ( mcs->sn % mcs->gpi == 0 ) {
     return 1;
   }
@@ -979,7 +1248,7 @@ int mcs_isGPrint(struct MCState *mcs) {
 
 
 // Check if this is a step at which energy should be checked
-int mcs_isECheck(struct MCState *mcs) {
+int isECheck(struct MCState *mcs) {
   if ( mcs->sn % mcs->eci == 0 ) {
     return 1;
   }
@@ -991,7 +1260,7 @@ int mcs_isECheck(struct MCState *mcs) {
 
 // Check if this is a step at which maximum trial displacement should be
 //  updated.
-int mcs_isMaxDisAdjust(struct MCState *mcs) {
+int isMaxDisAdjust(struct MCState *mcs) {
   if ( mcs->sn % mcs->mdai == 0 ) {
     return 1;
   }
@@ -1003,7 +1272,8 @@ int mcs_isMaxDisAdjust(struct MCState *mcs) {
 
 // Check if this is a step at which maximum trial volume change should be
 //  updated.
-int mcs_isMaxDVAdjust(struct MCState *mcs) {
+int isMaxDVAdjust(struct MCState *mcs) {
+
   if ( mcs->sn % mcs->mvai == 0 ) {
     return 1;
   }
@@ -1015,7 +1285,7 @@ int mcs_isMaxDVAdjust(struct MCState *mcs) {
 
 
 // Print thermodynamic properties, averaged over thermo block
-int mcs_printThermo(struct MCState *mcs) {
+int printThermo(struct MCState *mcs) {
 	double lM,lSM,EM,ESM,VirM,VirSM;
 	unsigned long int ss;
 
@@ -1043,7 +1313,7 @@ int mcs_printThermo(struct MCState *mcs) {
 
 
 // Accumulate thermodynamic property values
-int mcs_updateThermo(struct MCState *mcs) {
+int updateThermo(struct MCState *mcs) {
 
     mcs->lA = mcs->lA + mcs->l;
     mcs->lSA = mcs->lSA + mcs->l*mcs->l; 
@@ -1058,10 +1328,12 @@ int mcs_updateThermo(struct MCState *mcs) {
 
 
 // Double-check the system energy
-int mcs_ECheck(struct MCState *mcs) {
+int ECheck(struct MCState *mcs) {
   int resultFlag;
   unsigned long int iq,ii,jj;
   double rij1,rij3,rij6,rij12;
+  double *phiij,params[2];
+  params[0] = 0;
   
   mcsETest = 0;
   #pragma omp for private(iq,ii,jj,rij1,rij3,rij6,rij12) reduction(+:mcsETest)
@@ -1071,17 +1343,20 @@ int mcs_ECheck(struct MCState *mcs) {
     
     rijTest[iq] = mcs->r[jj] - mcs->r[ii];
     if (mcs->nbn >= 0 && jj-ii > mcs->nbn) {
+      eijTest[iq] = 0;
       e12ijTest[iq] = 0;
       e6ijTest[iq]  = 0;
     }
     else {
       rij1 = rijTest[iq];
-      rij3 = rij1*rij1*rij1;
-      rij6 = 1/(rij3*rij3);
-      rij12 = rij6*rij6;
-      e12ijTest[iq] = 4*rij12;
-      e6ijTest[iq] = 4*rij6;
-      mcsETest += e12ijTest[iq] - e6ijTest[iq];
+      //rij3 = rij1*rij1*rij1;
+      //rij6 = 1/(rij3*rij3);
+      //rij12 = rij6*rij6;
+      phiij       = mcs->phi(&rij1,params);
+      eijTest[iq] = phiij[0];
+      e12ijTest[iq] = phiij[2];
+      e6ijTest[iq] = phiij[4];
+      mcsETest += eijTest[iq];
     }
   }
   #pragma omp single
@@ -1104,7 +1379,7 @@ int mcs_ECheck(struct MCState *mcs) {
 
 // Adjust maximum trial displacement
 //   The algorithm is from Swendsen, Physics Procedia 15.
-int mcs_maxDisAdjust(struct MCState *mcs) {
+int maxDisAdjust(struct MCState *mcs) {
   static unsigned long int dAErrNtot = 0;
   static double idealRatio = 0.5;
   double actualRatio;
@@ -1122,7 +1397,7 @@ int mcs_maxDisAdjust(struct MCState *mcs) {
 
 // Adjust maximum trial volume change
 //   The algorithm is from Swendsen, Physics Procedia 15.
-int mcs_maxDVAdjust(struct MCState *mcs) {
+int maxDVAdjust(struct MCState *mcs) {
   static unsigned long int vAErrNtot = 0;
   static double idealRatio = 0.5;
   double actualRatio;
@@ -1139,7 +1414,7 @@ int mcs_maxDVAdjust(struct MCState *mcs) {
 
 
 // Print the system's current energy to stdout
-int mcs_printE(struct MCState *mcs) {
+int printE(struct MCState *mcs) {
   printf("\nE = %.8G\n",mcs->E);
   return 0;
 }
@@ -1147,7 +1422,7 @@ int mcs_printE(struct MCState *mcs) {
 
 // Print the cumulative acceptances and rejections for each trial type
 //  to stdout
-int mcs_printAcc(struct MCState *mcs) {
+int printAcc(struct MCState *mcs) {
   printf("Accepted/Rejected: Displacements VolumeChanges\n              \
           %lu/%lu          %lu/%lu\n",mcs->dAcc[0],mcs->dAcc[1],mcs->vAcc[0], \
           mcs->vAcc[1]);
@@ -1157,7 +1432,7 @@ int mcs_printAcc(struct MCState *mcs) {
 
 // Full attempt at volume change trial (not using knowledge of previous state
 //  to short-cut the calculation). Update system state according to outcome.
-int mcs_fav(struct MCState *mcs) {
+int fav(struct MCState *mcs) {
 	unsigned long int ii,jj,ind;
 	double lRat1,ran;
 	double rij1a,rij3a,rij6a,rij7a,rij12a,rij13a;
@@ -1243,7 +1518,7 @@ int mcs_fav(struct MCState *mcs) {
 
 
 // Quickly calculate current density and g(x), using knowledge of previous state.
-int mcs_qagrho(struct MCState *mcs) {
+int qagrho(struct MCState *mcs) {
 	
 	unsigned long int ii,jj;
 	long int rb,gs,gb,gb1,gb2,gs2;
@@ -1331,6 +1606,8 @@ int mcs_qagrho(struct MCState *mcs) {
 	
   return 0;
 }
+
+
 
 
 

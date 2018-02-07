@@ -92,10 +92,19 @@ struct MCInput readInput(char *fstr) {
         }
         
         else if ( strncmp(token,"POT",10) == 0 ) {
+            char *pots[2] = {"LJ","HARMONIC"};
+            int potLen = 2, potFlag = 1, ii;
             token = strtok(NULL, s);
             while( token != NULL ) {
                 strncpy(inp.potStr,token,80);
-                if ( strncmp(inp.potStr,"LJ",10) != 0 ) {
+                for (ii = 0; ii < potLen; ii++) {
+                    if ( strncmp(inp.potStr,pots[ii],10) == 0 ) {
+                        potFlag = 0;
+                    }
+                }
+                if ( potFlag == 0 ) {
+                }
+                else {
                     printf("Unknown potential type requested (%s). Using Lennard-Jones potential.\n",token);
                     strncpy(inp.potStr,"LJ",80);
                 }
