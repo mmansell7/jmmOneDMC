@@ -3,24 +3,24 @@
 #include <gsl/gsl_rng.h>
 #include "jmmMCState.h"
 
+// Some file-global variables (available to all functions defined in this
+//  file, but not to functions defined in other files) are necessary
+//  to serve as reduction variables for OpenMP for loops. Local variables
+//  cannot be used for this purpose.
 static double mcsETest,mcsETrial,mcsE6Trial,mcsE12Trial,mcsVirTrial,mcsVir6Trial,mcsVir12Trial;
 static double mcsdE6,mcsdE12,mcsdE,mcsdVir6,mcsdVir12,mcsdVir,ran;
 static double *rijTest,*e6ijTest,*e12ijTest;
 static long int gs11,gs12;
 
+// IMPORTANT. Define the MCState struct. This struct holds the state of the system
+//  and is what other functions operate on in order to read or modify that state.
+//  Note that, by defining the struct in jmmMCState.c instead of jmmMCState.h, its
+//  internal variables cannot be accessed except through the functions defined in 
+//  this file. This provides a level of safety.
 struct MCState {
   
-  // Use of typedefs to hide pointers is discouraged. Cease this practice.
-  /*
-  typedef double* dVECTOR;
-  typedef dVECTOR* dMATRIX;
-  typedef unsigned long int* luVECTOR;
-  typedef luVECTOR* luMATRIX;
-  typedef int* iVECTOR;
-  typedef iVECTOR* iMATRIX;
-  typedef FILE** fVECTOR;
-  */
-
+  // Note: Use of typedefs to hide pointers is discouraged.  I have gone away from
+  //  that practice.
 
   unsigned long int N;             // Number of particles
   int nbn;                         // Number of neighbors with which each particle can
@@ -146,6 +146,9 @@ struct MCState {
   gsl_rng * rangen;                // Random number generator
 };
 
+
+// Print to stdout the (not necessarily) constant "parameters" defining the 
+//  requested simulation conditions.
 int printMCP(struct MCState *mcs1) {
 	printf("Printing Monte Carlo parameters...\n");
         printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
@@ -167,25 +170,25 @@ int printMCP(struct MCState *mcs1) {
 	return 0;
 }	
 
+
+// Take an MCInput struct and use it to create and return a new MCState struct.
 struct MCState * setupMCS(struct MCInput inp) {
         struct MCState *mcs = (struct MCState *) malloc(sizeof(struct MCState));
 
         unsigned long int ii,jj,dj,ind;
         char gfstr[20];
         
+        // Initialize parameters provided by input struct.
         mcs->N          = inp.N;
 	mcs->P          = inp.P;
 	mcs->T          = inp.T;
 	mcs->nbn        = inp.nbn;
-	mcs->sn         = 0;
         mcs->numSteps   = inp.ns;
         mcs->cpi        = inp.cpi;
         mcs->tpi        = inp.tpi;
         mcs->eci        = inp.eci;
         mcs->mdai       = inp.mdai;
         mcs->mvai       = inp.mvai;
-	mcs->slcp       = -1;
-	mcs->sltp       = -1;
 	mcs->numPairs   = (unsigned long int) ((double) (mcs->N-1)/2*mcs->N);
 	mcs->nm         = 0;
 	mcs->gpi        = inp.gpi;
@@ -203,24 +206,28 @@ struct MCState * setupMCS(struct MCInput inp) {
 
 	printMCP(mcs);
 	
-	mcs->dAcc[0]    = 0;
-	mcs->dAcc[1]    = 0;
-	mcs->vAcc[0]    = 0;
-	mcs->vAcc[1]    = 0;
+	// Initialize the "steps since last x" variables to -1 so that
+	//  when the corresponding data is written at step 0, they will
+	//  be properly averaged over 1 data point.
+        mcs->sn         = 0;
+	mcs->slcp       = -1; 
+	mcs->sltp       = -1;
+        mcs->slrho      = -1;
+        mcs->slg        = -1;
+        
+        // Initialize energy and virial terms to large values
 	mcs->E          = 10E10;
 	mcs->E6         = -5E10;
 	mcs->E12        = 5E10;
-	mcs->l          = mcs->N;
 	mcs->Vir        = 10E10;
 	mcs->Vir6       = -5E10;
 	mcs->Vir12      = 5E10;
 	mcs->md         = 0;
+	
+        // Initialize box size based on number of particles.
+        mcs->l          = mcs->N;
 
-	mcs->cf = fopen("config.dat.mcs","w");
-        mcs->tf = fopen("thermo.dat.mcs","w");
-        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
-	fflush(mcs->tf);
-        
+        // Initialize accumulators to 0
         mcs->lA         = 0;
         mcs->lSA        = 0;
         mcs->EA         = 0;
@@ -232,19 +239,22 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->dAcc[1]    = 0;
         mcs->vAcc[0]    = 0;
         mcs->vAcc[1]    = 0;
-
+        
+        // Number of pairs is calculated from total number of particles.
+        //  At this time, arrays are set up to enable unlimited neighbor
+        //  interactions.  In the future, these arrays could be smaller
+        //  for systems with limited neighbors.
         mcs->numPairs   = ((mcs->N-1)*mcs->N)/2;
-
+        
+        // Set up arrays defining particles and pairs
         mcs->r          = (double *) malloc(mcs->N*sizeof(double));
         mcs->rij        = (double *) malloc(mcs->numPairs*sizeof(double));
-        rijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
-        e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
-        e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
-
+        
+        // Initialize arrays defining trial particles and pairs
         mcs->rTrial         = (double *) malloc(mcs->N*sizeof(double));
         mcs->rijTrial       = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
@@ -252,11 +262,18 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
         mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
 
+        // Initialize arrays used to double-check the system energy
+        rijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
+        e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
+        e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
+	
+        // Initialize arrays used to convert between particle identifiers, ii and jj, -
+        //  and pair identifier, ind.
         mcs->iii            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
         mcs->jjj            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
         mcs->indind         = (unsigned long int **) malloc((mcs->N-1)*sizeof(unsigned long int *));
         
-	ind = 0;
+        ind = 0;
         for (ii = 0; ii < mcs->N-1; ii++) {
                 (*mcs).indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
                 for (jj = ii + 1; jj < mcs->N; jj++) {
@@ -265,19 +282,44 @@ struct MCState * setupMCS(struct MCInput inp) {
                         ind++;
                 }
         }
-
-        mcs->slrho = -1;
+        
+        // Also notice that r and rij initial values are calculated here by
+        //  the particle evenly in the box.
+        ind = 0;
+        for (ii = 0; ii < mcs->N; ii++) {
+                mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
+                for (jj = ii+1; jj < mcs->N; jj++) {
+                        mcs->iii[ind] = ii;
+                        mcs->jjj[ind] = jj;
+                        ind++; 
+                }
+        }
+        
+        for (ind = 0; ind < mcs->numPairs; ind++) {
+                mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
+        }
+        
+        // Initialize block accumulator, last-step-state, and block mean arrays
+        //  for density.
         mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
-        mcs->rhof = fopen("rho.dat.mcs","w");
         for (ii = 0; ii < mcs->N; ii++) {
                 mcs->rhol[ii] = 0;
                 mcs->rhoA[ii] = 0;
                 mcs->rhoM[ii] = 0;
         }
         
-        mcs->slg = -1;
+        
+        // Open output files and print headers in them.
+	mcs->cf = fopen("config.dat.mcs","w");
+        mcs->tf = fopen("thermo.dat.mcs","w");
+        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
+        mcs->rhof = fopen("rho.dat.mcs","w");
+        
+        // Initialize block accumulator, last-step-state, and block mean arrays
+        //  for g(r) or two-particle density.  And, open the corresponding
+        //  output files.
         mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
         mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
         mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
@@ -295,37 +337,38 @@ struct MCState * setupMCS(struct MCInput inp) {
                 } 
         }       
         
-        ind = 0;
-        for (ii = 0; ii < mcs->N; ii++) {
-                mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
-                for (jj = ii+1; jj < mcs->N; jj++) {
-                        mcs->iii[ind] = ii;
-                        mcs->jjj[ind] = jj;
-                        ind++; 
-                }
-        }               
-        for (ind = 0; ind < mcs->numPairs; ind++) {
-                mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
-        }
-        
+        // Perform a full calculation of the current density and g(r) or two-
+        //  particle density histogram.
         mcs_fgrho(mcs);
+        
+        // Update the density and g(r) accumulators.
         mcs_ugrho(mcs);
-
+        
+        // Create the random number generator for the system.
 	mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
+        // Seed the random generator 
 	gsl_rng_set(mcs->rangen,mcs->seed);
+	
+        // Flush streams to ensure everything prints before a crash
+        fflush(mcs->cf);
+        fflush(mcs->tf);
         fflush(stdout);
 	
+        // Return the pointer to the MCState struct that has just been setup
 	return mcs;
 }
 
 
+// Print the current step
 void mcs_printStep(struct MCState *mcs) {
-	printf("Step: %lu...\n",mcs->sn);
+    printf("Step: %lu...\n",mcs->sn);
+    fflush(stdout);
 }
 
 
+// Do a full attempted trial displacement (no short-cuts to calculate the
+//  energy using knowledge of the previous state).
 void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
-	// Full attempt, displacement
 	unsigned long int ii,jj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13,ran;
 
@@ -352,7 +395,6 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	}
 
 	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
-	//fprintf(stdout,"Attempting to move particle %lu by %lf...",nm,md);
 	mcs->rTrial[mcs->nm] = mcs->r[mcs->nm] + mcs->md;
 	mcs->E6Trial = 0;
 	mcs->E12Trial = 0;
@@ -360,10 +402,8 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	mcs->Vir6Trial = 0;
 	mcs->Vir12Trial = 0;
 	mcs->VirTrial = 0;
-//	printf("Particle to move: %lu,  Move distance: %.5f...",nm,md);
 	if (fabs(mcs->rTrial[mcs->nm]) > (mcs->l/2.0)) {
 		mcs->bndchk = 1;
-		//printf("Wall collision. Displacement rejected\n");
 		mcs->dAcc[1]++;
 	}
 	else {
@@ -384,7 +424,6 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			ii            = mcs->iii[ind];
 			jj            = mcs->jjj[ind];
 			mcs->rijTrial[ind] = mcs->rTrial[jj] - mcs->rTrial[ii];
-//			printf("ii,jj,rij = %lu,%lu, %.5G\n",ii,jj,rijTrial[ind]);
 			if (mcs->nbn >= 0 && jj-ii > mcs->nbn) {
 				mcs->e6ijTrial[ind]     = 0;
 				mcs->e12ijTrial[ind]    = 0;
@@ -409,9 +448,7 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 				mcsVir6Trial   += mcs->vir6ijTrial[ind];
 				mcsVir12Trial  += mcs->vir12ijTrial[ind];
 			}
-                        //printf("eSum,e6,e12[%lu][%lu]Trial = %.5G,%.5G,%.5G\n",ii,jj,mcs->e12ijTrial[ind]-mcs->e6ijTrial[ind],mcs->e6ijTrial[ind],mcs->e12ijTrial[ind]);
 		}
-//		printf("Done with for loop\n");
 		
 		mcs->E6Trial     = mcsE6Trial;
 		mcs->E12Trial    = mcsE12Trial;
@@ -424,13 +461,11 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 		mcs->ETrial = mcs->E12Trial - mcs->E6Trial;
 
 		if (mcs->ETrial > mcs->E ) {
-//			printf("ETrial: %lf...*Ep: %.5G...",ETrial,*Ep);
 			ran = gsl_rng_uniform(mcs->rangen);
 			mcs->bf = exp((mcs->E-mcs->ETrial)/mcs->T);
 		}
 
 		if (mcs->ETrial < mcs->E || mcs->bf > ran) {
-			//printf("Displacement accepted...E = %.8G\n",ETrial);
 			mcs->dAcc[0]++;
 			mcs->E     = mcs->ETrial;
 			mcs->E6    = mcs->E6Trial;
@@ -449,17 +484,16 @@ void mcs_fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			}
 		}
 		else {
-			//printf("Displacement rejected\n");
 			mcs->dAcc[1]++;
 		}
-		//printf("Check 9...Thread no.: %d\n",omp_get_thread_num());
 		}
 	}
-	//printf("Exiting fad...Thread no.: %d\n",omp_get_thread_num());
 	fflush(stdout);
 	#pragma omp barrier
 }
 
+
+// Print coordinates of all particles in the system
 int mcs_printCoords(struct MCState *mcs) {
         unsigned long int ind;
         fprintf(mcs->cf,"%lu\nStep no.: %lu  Box length: %.5f\n",mcs->N,mcs->sn,mcs->l);
@@ -473,29 +507,19 @@ int mcs_printCoords(struct MCState *mcs) {
 }
 
 
+// Print the density histogram
 int mcs_printRho(struct MCState *mcs) {
 
-
         unsigned long int rb,ns;
-        // if (fprintf(rhof,"") < 0 ) {
-        // perror("Error printing to rhof.dat!\n");
-        // }
         ns = (mcs->sn - mcs->slrho);
-        //printf("printRho.  sn = %lu  rhof = %p  ns = %lu\n",sn,rhof,ns);
-        //fflush(stdout);
-        //printf("rhof new line\n");
         fprintf(mcs->rhof,"%lu",mcs->sn);
-        //fflush(rhof);
+        
         for (rb = 0; rb < mcs->rhonb; rb++) {
-          //printf("## rhoM[%lu]: %p rhoA[%lu]: %p gA: %p %p gA[0]: %p %p  gA[%u]: %p %p\n",rb,&rhoM[rb],rb,&rhoA[rb],gA,&(gA[0]),gA[0],&(gA[0][0]),gns-1,gA[gns-1],&(gA[gns-1][0]));
-          //fflush(stdout);
-          //printf("rb = %lu\n",rb);
-          //fflush(stdout);
           mcs->rhoM[rb] = (double) mcs->rhoA[rb]/ns/mcs->rbw;
           fprintf(mcs->rhof," %.8G",mcs->rhoM[rb]);
-          //fflush(stdout);
           mcs->rhoA[rb] = 0;
         }
+        
         fprintf(mcs->rhof,"\n");
         fflush(mcs->rhof);
         mcs->slrho = mcs->sn;
@@ -503,6 +527,8 @@ int mcs_printRho(struct MCState *mcs) {
         return 0;
 }
 
+
+// Print the g(x) histograms
 int mcs_printG(struct MCState *mcs) {
   
 	int gs;
@@ -528,9 +554,8 @@ int mcs_printG(struct MCState *mcs) {
 }
   
   
-
-
-
+// Do a full calculation of density and g(x), not using any knowledge of the
+//  distributions at the previous step.
 int mcs_fgrho(struct MCState *mcs) {
 
 	unsigned long int ii,jj,ind;
@@ -543,7 +568,6 @@ int mcs_fgrho(struct MCState *mcs) {
 
 	#pragma omp for
 	for(ii = 0; ii < mcs->N; ii++) {
-		//printf("ii = %lu\n",ii);
 		rb = (long int) floor(mcs->r[ii]/mcs->rbw + mcs->rhonb/2.0);
 		if (rb >= 0 && rb < mcs->rhonb) {
 			#pragma omp atomic
@@ -551,11 +575,7 @@ int mcs_fgrho(struct MCState *mcs) {
 		}
 	}
 	
-	//printf("Inside fgrho...Thread no.: %d...gns,gnb = %d, %lu\n",omp_get_thread_num(),gns,gnb);
-	fflush(stdout);
 	#pragma omp barrier
-	// #pragma omp single
-	// {
 	
 	#pragma omp for
 	for (gs1 = 0; gs1 < mcs->gns; gs1++) {
@@ -565,60 +585,39 @@ int mcs_fgrho(struct MCState *mcs) {
 	}
 	
 	#pragma omp for private(ind,ii,jj,gs1,gs2,gb)
-	//printf("gA: %p %p gA[0]: %p %p  gA[%u]: %p %p\n",gA,&(gA[0]),gA[0],&(gA[0][0]),gns-1,gA[gns-1],&(gA[gns-1][0]));
 	for (ind = 0; ind < mcs->numPairs; ind++) {
 		ii = mcs->iii[ind];
 		jj = mcs->jjj[ind];
 		gs1 = (long int) floor(mcs->r[ii]/mcs->gsw + mcs->gns/2.0);
 		gs2 = (long int) floor(mcs->r[jj]/mcs->gsw + mcs->gns/2.0);
 		gb = (long int) floor(mcs->rij[ind]/mcs->gbw);
-		//printf("ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
-		//fflush(stdout);
+	        
 		if(gb < mcs->gnb) {
 			if (gs1 >= 0 && gs1 < (long int) mcs->gns) {
-				//printf("A ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
-				//fflush(stdout);
 				#pragma omp atomic
 				mcs->gl[gs1][gb]++;
 			}
 			else {
-				//printf("B ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
-				//fflush(stdout);
 				
 			}
 			
 			if (gs2 >= 0 && gs2 < (long int) mcs->gns) {
-				//printf("C ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
-				//fflush(stdout);
-				//printf("Accumulating to gA[%ld][%lu] at ",gs2,gb);
-				//fflush(stdout);
-				//printf("gA: %p  gA[%ld][%lu]: %p...",gA,gs2,gb,&(gA[gs2][gb]));
-				//fflush(stdout);
 				#pragma omp atomic
 				mcs->gl[gs2][gb]++;
-				//printf(" = %d\n",gA[gs2][gb]);
-				//fflush(stdout);
 			}
 			else {
-				//printf("D ");
-				//printf("ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
-				//fflush(stdout);
 			}
 		
 		}
 		else {
-			//printf("E ind = %lu  ii = %lu  jj = %lu  gs1 = %ld  gs2 = %ld  gb = %ld\n",ind,ii,jj,gs1,gs2,gb);
-			//fflush(stdout);
 		}
-		//printf("Next ind = %lu\n",ind+1);
 	}
-	//printf("Out of for loop\n");
 
   return 0;
 }
 
 
-
+// Accumulate density and g(x)
 int mcs_ugrho(struct MCState *mcs) {
 
 	unsigned long int rb,gb;
@@ -640,25 +639,24 @@ int mcs_ugrho(struct MCState *mcs) {
 }
 
 
-
+// Quickly attempt a displacement trial, using knowledge of the state at the
+//  previous step. Update the state according to the outcome of the trial.
 int mcs_qad(struct MCState *mcs) {
 
 	unsigned long int ii,jj,dj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13;
-	//double d;
+        
 	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
 	
 	#pragma omp single
 	{
 	mcs->rTrial[mcs->nm] = mcs->r[mcs->nm] + mcs->md;
-	//fprintf(stdout,"Attempting to move particle %lu by %lf...",nm,md);
 	}
 	
 	if (fabs(mcs->rTrial[mcs->nm]) > mcs->l/2.0) {
 		#pragma omp single
 		{
 		mcs->dAcc[1]++;
-		//printf("Wall collision. Move rejected...dRej = %lu",dAcc[1]);
 		}
 	}
 	
@@ -671,12 +669,8 @@ int mcs_qad(struct MCState *mcs) {
 		mcsdVir12 = 0;
 		}
 		
-		//printf("nm = %lu...\n",nm);
-		//fflush(stdout);	
 		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12) nowait
 		for (ii = 0; ii < mcs->nm; ii++) {
-		//	printf("ii = %lu\n",ii);
-		//	fflush(stdout);	
 			dj = mcs->nm - ii - 1;
 			ind = mcs->indind[ii][dj];
 			mcs->rijTrial[ind] = mcs->rij[ind] + mcs->md;
@@ -685,7 +679,6 @@ int mcs_qad(struct MCState *mcs) {
 				mcs->e12ijTrial[ind] = 0;
 				mcs->vir6ijTrial[ind] = 0;
 				mcs->vir12ijTrial[ind] = 0;
-				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
 			}
 			else {
 				rij1 = mcs->rijTrial[ind];
@@ -698,7 +691,6 @@ int mcs_qad(struct MCState *mcs) {
 				mcs->e12ijTrial[ind] = 4*rij12;
 				mcs->vir6ijTrial[ind] = 24/mcs->l*rij6;
 				mcs->vir12ijTrial[ind] = 48/mcs->l*rij12;
-				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
 			}
 			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
 			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
@@ -706,17 +698,8 @@ int mcs_qad(struct MCState *mcs) {
 			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
 		}
 
-		//#pragma omp single
-		//{
-		//	if (nm == 19) {
-		//		fprintf(stdout,"(Intermediate) dE6, dE12 = %.8G, %.8G\n",dE6,dE12);
-		//	}
-		//}
-		
 		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12)
 		for (ii = mcs->nm + 1; ii < mcs->N; ii++) {
-		//	printf("ii = %lu\n",ii);
-		//	fflush(stdout);	
 			dj = ii - mcs->nm - 1;
 			ind = mcs->indind[mcs->nm][dj];
 			mcs->rijTrial[ind] = mcs->rij[ind] - mcs->md;
@@ -725,7 +708,6 @@ int mcs_qad(struct MCState *mcs) {
 				mcs->e12ijTrial[ind]   = 0;
 				mcs->vir6ijTrial[ind]  = 0;
 				mcs->vir12ijTrial[ind] = 0;
-				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
 			}
 			else {
 				rij1 = mcs->rijTrial[ind];
@@ -738,7 +720,6 @@ int mcs_qad(struct MCState *mcs) {
 				mcs->e12ijTrial[ind] = 4*rij12;
 				mcs->vir6ijTrial[ind] = 24/mcs->l*rij6;
 				mcs->vir12ijTrial[ind] = 48/mcs->l*rij12;
-				//printf("nm,ii,e6,e6Trial,e12,e12Trial = %lu,%lu, %lf, %lf, %lf, %lf\n",nm,ii,e6ij[ind],e6ijTrial[ind],e12ij[ind],e12ijTrial[ind]);
 			}
 			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
 			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
@@ -746,12 +727,6 @@ int mcs_qad(struct MCState *mcs) {
 			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
 		}
 		
-		//#pragma omp single
-		//{
-		//	if (nm == 19) {
-		//		fprintf(stdout,"(End) dE6, dE12 = %.8G, %.8G\n",dE6,dE12);
-		//	}
-		//}
 		#pragma omp barrier  // THIS BARRIER IS CRITICAL TO CALCULATE dE ACCURATELY (I DO NOT UNDERSTAND WHY THAT SHOULD BE THE CASE)
 		
 		#pragma omp single
@@ -759,14 +734,11 @@ int mcs_qad(struct MCState *mcs) {
 		mcs->dE12 = mcsdE12;
 		mcs->dE6 = mcsdE6;
 		mcs->dE = mcs->dE12 - mcs->dE6;
-		//printf("dE = %.8G...",dE);
-		//fflush(stdout);	
 		}
 		
 		if (mcs->dE > 0 ) {
 		#pragma omp single
 		{
-			//printf("ETrial: %lf...*Ep: %.5G...",ETrial,*Ep);
 			ran = gsl_rng_uniform(mcs->rangen);
 			mcs->bf = exp(-mcs->dE/mcs->T);
 		}
@@ -776,8 +748,6 @@ int mcs_qad(struct MCState *mcs) {
 			#pragma omp single
 			{
 			mcs->dAcc[0]++;
-                        //printf("Boltzmann factor: %lf...random: %lf...",bf,ran);
-			//printf("Displacement accepted...dAcc = %lu...",dAcc[0]);
 			mcs->E      += mcs->dE;
 			mcs->E6     += mcs->dE6;
 			mcs->E12    += mcs->dE12;
@@ -789,93 +759,49 @@ int mcs_qad(struct MCState *mcs) {
 			
 			#pragma omp for private(jj,dj,ind) nowait
 			for (jj = 0; jj < mcs->nm; jj++) {
-				//printf("jj = %lu\n",jj);
-				//fflush(stdout);	
 				dj = mcs->nm - jj - 1;
 				ind = mcs->indind[jj][dj];
-				//printf("1. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->rij[ind] = mcs->rijTrial[ind];
-				//printf("2. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
-				//printf("3. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
-				//printf("4. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
-				//printf("5. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
-				//printf("6. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
-				//fprintf(tf,"jj,nm,dj,rij = %lu,%lu,%lu,%lf\n",jj,nm,dj,rij[ind]);
 			}
 			#pragma omp for private(jj,dj,ind)
 			for (jj = mcs->nm + 1; jj < mcs->N; jj++) {
-				//printf("7. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				dj = jj - mcs->nm - 1;
-				//printf("8. nm,jj,dj,ind = %lu,%lu,%lu,%lu\n",nm,jj,dj,ind);
-				//fflush(stdout);	
 				ind = mcs->indind[mcs->nm][dj];
-				//printf("9. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->rij[ind] = mcs->rijTrial[ind];
-				//printf("10. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
-				//printf("11. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
-				//printf("12. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
-				//printf("13. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
 				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
-				//printf("14. jj,dj,ind = %lu,%lu,%lu\n",jj,dj,ind);
-				//fflush(stdout);	
-				//fprintf(tf,"jj,nm,dj,rij = %lu,%lu,%lu,%lf\n",jj,nm,dj,rij[ind]);
-				fflush(mcs->tf);
 			}
 			
+                        // Short-cut calculation of density and g(x)
 			mcs_qagrho(mcs);
 			
-		/*#pragma omp single
-		{
-			//printf("Done accepting displacement\n");
-			fflush(stdout);	
-		}*/
 		}
 		else {
 		#pragma omp single
 		{
 			mcs->dAcc[1]++;
-                        //printf("Boltzmann factor: %lf...random: %lf...",bf,ran);
-			//printf("Displacement rejected...dRej = %lu...",dAcc[1]);
 		}
 		}
-		//printf("Check 9...Thread no.: %d\n",omp_get_thread_num());
-		
-		/*#pragma omp single
-		{
-			printf("E = %.8G\n",E);
-		} */
 	}
 	
+        // Accumulate density and g(x)
 	mcs_ugrho(mcs);
-	//printf("Exiting fad...Thread no.: %d\n",omp_get_thread_num());
-	fflush(stdout);
+	
+        fflush(stdout);
 	#pragma omp barrier
-
 
 	return 0;
 }
 
 
-
+// Quickly attempt a volume change trial, using knowledge of the state at the
+//  previous step. Update the state according to the outcome of the trial.
 int mcs_qav(struct MCState *mcs) {
 	
 	unsigned long int ii,ind;
@@ -884,8 +810,6 @@ int mcs_qav(struct MCState *mcs) {
 	#pragma omp single
 	{
 	mcs->dl = (mcs->rn-0.5)*2*mcs->maxdl;
-	//fprintf(stdout,"Attempting to change volume by %lf...",dl);
-	//printf("E6 = %.5G...E12 = %.5G...E = %.5G...",E6,E12,E);
 	lRat1 = (mcs->l+mcs->dl)/mcs->l;
 	lRat3 = lRat1*lRat1*lRat1;
 	lRat6 = 1/(lRat3*lRat3);
@@ -893,24 +817,17 @@ int mcs_qav(struct MCState *mcs) {
 	mcs->E6Trial = lRat6*mcs->E6;
 	mcs->E12Trial = lRat12*mcs->E12;
 	mcs->dE = mcs->E12Trial - mcs->E6Trial - mcs->E;
-	//mcs->bf = exp(-(dE + P*dl)/T)*pow(lRat1,N);
 	mcs->bf   = exp(-(mcs->dE + mcs->P*mcs->dl)/mcs->T + mcs->N*log(lRat1));
-	//printf("E6Trial = %.5G...E12Trial = %.5G...dE = %.5G...Boltzmann factor: %lf",E6Trial,E12Trial,dE,bf);
-	//printf("dE = %.5G...Boltzmann factor: %lf...",dE,bf);
 
 	if (mcs->bf < 1.0 ) {
-//		printf("ETrial: %lf...*Ep: %.5G...",ETrial,*Ep);
 		ran = gsl_rng_uniform(mcs->rangen);
-		//printf("dE: %lf...Boltzmann factor: %lf...",dE,bf);
 	}
 	}
 	
 	if (mcs->bf >= 1.0 || mcs->bf > ran) {
 		#pragma omp single
 		{
-		//printf("random: %lf...",ran);
 		mcs->vAcc[0]++;
-		//printf("Volume change accepted...vAcc = %lu",vAcc[0]);
 		mcs->E6  = mcs->E6Trial;
 		mcs->E12 = mcs->E12Trial;
 		mcs->E      = mcs->E12 - mcs->E6;
@@ -938,25 +855,13 @@ int mcs_qav(struct MCState *mcs) {
 			mcs->vir12ij[ind] = lRat13*mcs->vir12ij[ind];
 		}
 		
-/*		#pragma omp single
-		{
-		for (ii = 0; ii < N - 1; ii++) {
-			for (jj = ii + 1; jj < N; jj++) {
-				dj = jj - ii - 1;
-				ind = indind[ii][dj];
-				fprintf(stdout,"rij[%lu][%lu] = %lf\n",ii,jj,rij[ind]);
-			}
-		}
-		} */
 		mcs_fgrho(mcs);
 	}
 	
 	else {
 		#pragma omp single
 		{
-		//printf("random: %lf...",ran);
 		mcs->vAcc[1]++;
-		//printf("Volume change rejected...vRej = %lu",vAcc[1]);
 		}
 	}
 	mcs_ugrho(mcs);
@@ -966,10 +871,7 @@ int mcs_qav(struct MCState *mcs) {
 }
 
 
-
-
-
-
+// Increment the state's current step
 unsigned long int mcs_incrementStep(struct MCState *mcs) {
   int flag = 0;
   const int stepPrintInterval = 10000;
@@ -993,44 +895,47 @@ unsigned long int mcs_incrementStep(struct MCState *mcs) {
 }
 
 
-
-
-
-
-
+// Attempt a Monte Carlo step on the state.
 int mcs_Step(struct MCState *mcs) {
   #pragma omp barrier
   #pragma omp single
   {
   mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->N+1);
   mcs->rn = gsl_rng_uniform(mcs->rangen);
-  //printf("nm: %lu, rn: %.5G...\n",mcs->nm,mcs->rn);
-  fflush(stdout);
   }
   #pragma omp barrier
 
+  // nm is the number of the particle selected to try displacing. If its
+  //  number exceeds that of the highest-numbered particle, that means
+  //  do a volume change trial.
   if (mcs->nm < mcs->N) {
-    //printf("Executing mcs_qad(mcs)...\n");
-    //fflush(stdout);
+    // Do a trial displacement on particle nm
     mcs_qad(mcs);
   }
   else {
-    //printf("Executing mcs_qav(mcs)...\n");
-    //fflush(stdout);
+    // Do a volume change trial
     mcs_qav(mcs);
   }
   
+  // At appropriate steps, double-check that the energy has not been
+  //  corrupted.  (Useful when qad and qav are being used because they
+  //  calculate the energy based on the change in energy from the 
+  //  previous step.  Therefore, if a step's energy is calculated
+  //  incorrectly, all subsequent steps will be calculated incorrectly
+  //  until corrected.)
   if (mcs_isECheck(mcs) ) {
     mcs_ECheck(mcs);
   }
   
   mcs_updateThermo(mcs);
+  fflush(stdout);
 
   return 0;
 
 }
 
 
+// Check if this is a step at which coordinates should be printed
 int mcs_isCoordPrint(struct MCState *mcs) {
   if ( mcs->sn % mcs->cpi == 0 ) {
     return 1;
@@ -1040,7 +945,7 @@ int mcs_isCoordPrint(struct MCState *mcs) {
   }
 }
 
-
+// Check if this is a step at which thermodynamic parameters should be printed
 int mcs_isThermoPrint(struct MCState *mcs ) {
   if ( mcs->sn % mcs->tpi == 0 ) {
     return 1;
@@ -1048,9 +953,10 @@ int mcs_isThermoPrint(struct MCState *mcs ) {
   else {
     return 0;
   }
-
 }
 
+
+// Check if this is a step at which density should be printed
 int mcs_isRhoPrint(struct MCState *mcs) {
   if ( mcs->sn % mcs->rhopi == 0 ) {
     return 1;
@@ -1061,6 +967,7 @@ int mcs_isRhoPrint(struct MCState *mcs) {
 
 }
 
+// Check if this is a step at which g(x) should be printed
 int mcs_isGPrint(struct MCState *mcs) {
   if ( mcs->sn % mcs->gpi == 0 ) {
     return 1;
@@ -1068,9 +975,10 @@ int mcs_isGPrint(struct MCState *mcs) {
   else {
     return 0;
   }
-
 }
 
+
+// Check if this is a step at which energy should be checked
 int mcs_isECheck(struct MCState *mcs) {
   if ( mcs->sn % mcs->eci == 0 ) {
     return 1;
@@ -1081,6 +989,8 @@ int mcs_isECheck(struct MCState *mcs) {
 
 }
 
+// Check if this is a step at which maximum trial displacement should be
+//  updated.
 int mcs_isMaxDisAdjust(struct MCState *mcs) {
   if ( mcs->sn % mcs->mdai == 0 ) {
     return 1;
@@ -1091,6 +1001,8 @@ int mcs_isMaxDisAdjust(struct MCState *mcs) {
 
 }
 
+// Check if this is a step at which maximum trial volume change should be
+//  updated.
 int mcs_isMaxDVAdjust(struct MCState *mcs) {
   if ( mcs->sn % mcs->mvai == 0 ) {
     return 1;
@@ -1102,6 +1014,7 @@ int mcs_isMaxDVAdjust(struct MCState *mcs) {
 }
 
 
+// Print thermodynamic properties, averaged over thermo block
 int mcs_printThermo(struct MCState *mcs) {
 	double lM,lSM,EM,ESM,VirM,VirSM;
 	unsigned long int ss;
@@ -1114,7 +1027,6 @@ int mcs_printThermo(struct MCState *mcs) {
 	ESM      = mcs->ESA/ss;
 	VirM     = mcs->VirA/ss;
 	VirSM    = mcs->VirSA/ss;
-//	printf("Check 3...sn: %lu...EM: %.5G...ESM: %.5G...lM: %.5G...lSM: %.5G\n",sn,EM,ESM,lM,lSM);
 	
 	fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,VirM,VirSM);
 	fflush(mcs->tf);
@@ -1130,6 +1042,7 @@ int mcs_printThermo(struct MCState *mcs) {
 }
 
 
+// Accumulate thermodynamic property values
 int mcs_updateThermo(struct MCState *mcs) {
 
     mcs->lA = mcs->lA + mcs->l;
@@ -1144,7 +1057,7 @@ int mcs_updateThermo(struct MCState *mcs) {
 }
 
 
-
+// Double-check the system energy
 int mcs_ECheck(struct MCState *mcs) {
   int resultFlag;
   unsigned long int iq,ii,jj;
@@ -1187,8 +1100,10 @@ int mcs_ECheck(struct MCState *mcs) {
   }
   return resultFlag;
 }
-  
 
+
+// Adjust maximum trial displacement
+//   The algorithm is from Swendsen, Physics Procedia 15.
 int mcs_maxDisAdjust(struct MCState *mcs) {
   static unsigned long int dAErrNtot = 0;
   static double idealRatio = 0.5;
@@ -1204,6 +1119,9 @@ int mcs_maxDisAdjust(struct MCState *mcs) {
   return 0;
 }
 
+
+// Adjust maximum trial volume change
+//   The algorithm is from Swendsen, Physics Procedia 15.
 int mcs_maxDVAdjust(struct MCState *mcs) {
   static unsigned long int vAErrNtot = 0;
   static double idealRatio = 0.5;
@@ -1220,11 +1138,15 @@ int mcs_maxDVAdjust(struct MCState *mcs) {
 }
 
 
+// Print the system's current energy to stdout
 int mcs_printE(struct MCState *mcs) {
   printf("\nE = %.8G\n",mcs->E);
   return 0;
 }
 
+
+// Print the cumulative acceptances and rejections for each trial type
+//  to stdout
 int mcs_printAcc(struct MCState *mcs) {
   printf("Accepted/Rejected: Displacements VolumeChanges\n              \
           %lu/%lu          %lu/%lu\n",mcs->dAcc[0],mcs->dAcc[1],mcs->vAcc[0], \
@@ -1233,12 +1155,8 @@ int mcs_printAcc(struct MCState *mcs) {
 }
 
 
-
-
-
-
-//void fav(dVECTOR r, dVECTOR rTrial, dVECTOR rij, dVECTOR rijTrial, dVECTOR e6ij, dVECTOR e6ijTrial, dVECTOR e12ij, dVECTOR e12ijTrial,
-//		dVECTOR vir6ij, dVECTOR vir6ijTrial, dVECTOR vir12ij, dVECTOR vir12ijTrial, double *lp,double *Ep, double *Virp, double rn) {
+// Full attempt at volume change trial (not using knowledge of previous state
+//  to short-cut the calculation). Update system state according to outcome.
 int mcs_fav(struct MCState *mcs) {
 	unsigned long int ii,jj,ind;
 	double lRat1,ran;
@@ -1250,9 +1168,7 @@ int mcs_fav(struct MCState *mcs) {
 	mcsETrial = 0;
 	mcsVirTrial = 0;
 	mcs->dl = (mcs->rn-0.5)*2*mcs->maxdl;
-//	printf("Volume change attempt. Linitial = %.5G, dL = %.5G...",*lp,dl);
 	lRat1 = (mcs->l + mcs->dl) / mcs->l;
-//	printf("dl = %.5G, lRat1 = %.5G\n",dl,lRat1);
 	for (ind = 0; ind < mcs->N; ind++) {
 		mcs->rTrial[ind] = mcs->r[ind]*lRat1;
 	}
@@ -1264,19 +1180,14 @@ int mcs_fav(struct MCState *mcs) {
 		ii            = mcs->iii[ind];
 		jj            = mcs->jjj[ind];
 
-//		printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
-
 		rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
 		if ( mcs->nbn >= 0 && jj-ii > mcs->nbn) {
-//			printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
 			mcs->e6ijTrial[ind]       = 0;
 			mcs->e12ijTrial[ind]      = 0;
 			mcs->vir6ijTrial[ind]     = 0;
 			mcs->vir12ijTrial[ind]    = 0;
-//			printf("ii,jj,rij1,rij6,e6 = %lu,%lu, %.5G, %.5G, %.5G\n",ii,jj,rij[ind],rij6a,e6ij[ind]);
 		}
 		else {
-//			printf("ii,jj,rij,= %lu,%lu, %.5G\n",ii,jj,rij[ind]);
 			rij3a          = rij1a*rij1a*rij1a;
 			rij6a          = 1/(rij3a*rij3a);
 			rij7a          = rij6a/rij1a;
@@ -1287,7 +1198,6 @@ int mcs_fav(struct MCState *mcs) {
 			mcs->e12ijTrial[ind]    = 4*rij12a;
 			mcs->vir6ijTrial[ind]     = 24/mcs->l*rij6a;
 			mcs->vir12ijTrial[ind]    = 48/mcs->l*rij12a;
-//			printf("ii,jj,rij1,rij6,e6 = %lu,%lu, %.5G, %.5G, %.5G\n",ii,jj,rij[ind],rij6a,e6ij[ind]);
 	
 			mcsETrial            += mcs->e12ijTrial[ind] - mcs->e6ijTrial[ind];
 			mcsVirTrial          += mcs->vir12ijTrial[ind] - mcs->vir6ijTrial[ind];
@@ -1299,7 +1209,6 @@ int mcs_fav(struct MCState *mcs) {
 	#pragma omp single
 	{
 
-//	printf("ETrial: %lf...",ETrial);
 	mcs->bf = exp(-(mcs->ETrial - mcs->E + mcs->P*mcs->dl) / mcs->T + mcs->N*log(lRat1));
 
 	if (mcs->bf < 1.0) {
@@ -1307,7 +1216,6 @@ int mcs_fav(struct MCState *mcs) {
 	}
 
 	if (mcs->bf >= 1.0 || mcs->bf > ran) {
-//		printf("Volume change accepted...");
 		mcs->vAcc[0]++;
 		mcs->l = mcs->l + mcs->dl;
 		mcs->E = mcs->ETrial;
@@ -1322,11 +1230,9 @@ int mcs_fav(struct MCState *mcs) {
 			mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
 			mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
 		}
-//		printf("Volume now: %.5G\n",*lp);
 	}
 	else {
 		mcs->vAcc[1]++;
-//		printf("Volume change rejected\n");
 	}
 	fflush(stdout);
 	}
@@ -1336,8 +1242,7 @@ int mcs_fav(struct MCState *mcs) {
 }
 
 
-
-
+// Quickly calculate current density and g(x), using knowledge of previous state.
 int mcs_qagrho(struct MCState *mcs) {
 	
 	unsigned long int ii,jj;

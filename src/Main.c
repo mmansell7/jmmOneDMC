@@ -54,41 +54,68 @@ int main (int argc, char *argv[]) {
     {
     printf("Running with %d threads...\n\n",omp_get_num_threads());
     
+    // Print the step number to stdout
     mcs_printStep(mcs);
-    fflush(stdout);
     }
-    unsigned long int ddd = 0;
-    double nnn = 0.5;
-    mcs_fad(mcs,&ddd,&nnn);
     
+    // In order to calculate initial energy, etc., step 0 is a "trial move"
+    //  in which mcs_fad is called with arguments indicating particle 0
+    //  should be moved by an amount equivalent to 50% probability within
+    //  the trial displacement probability distribution (which is equal to
+    //  a trial displacement of precisely 0).
+    unsigned long int nnn = 0;
+    double ddd = 0.5;
+    mcs_fad(mcs,&nnn,&ddd);
+    
+    // The following "sections" are each executed by a single thread, in 
+    //  parallel with the other sections.
     #pragma omp sections
     {
         #pragma omp section
         {
+        // Print coordinates at current step to the configuration file.
         mcs_printCoords(mcs);
         }
         
         #pragma omp section
         {
+        // Print density bin populations at current step to the rho file.
         mcs_printRho(mcs);
         }
         
         #pragma omp section
         {
+        // Accumulate thermodynamic parameters at step 0.  Accumulators are used to
+        //   calculate block averages at the end of each block. 
         mcs_updateThermo(mcs);
+
+        // Print step 0 thermodynamics to the thermo output file.
         mcs_printThermo(mcs);
         }
     }
     
+    // Print g(r) or two-particle density bin populations to the g#.dat files.
+    //   Note that the mcs_printG function is executed by all threads in parallel.
     mcs_printG(mcs);
     
+    
     // ############################### MC LOOP #######################################
+    
+           // In mcs_incrementStep, a single thread attempts to increment the step
+           //  number, returning 1 if the maximum step number has been
+           //  reached, and 0 otherwise.  All other threads wait until the check
+           //  has completed, so that all threads always return the same value.
     while ( mcs_incrementStep(mcs) ) {
         #pragma omp barrier
+        // Perform a Monte Carlo step, updating the systems state appropriately.
         mcs_Step(mcs);
         #pragma omp barrier
         
         //#pragma omp barrier
+        
+        //In the following sections, output files are updated, and trial maximum
+        //  values (displacement, volume change, etc.) are updated at the steps
+        //  defined in the input file.
         //#pragma omp sections private(ii,jj,dj,ind) nowait
         {
         //#pragma omp section
