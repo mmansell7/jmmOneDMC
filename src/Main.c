@@ -33,7 +33,7 @@ int main (int argc, char *argv[]) {
     printf("########################################\n\n");
     
     // Read input from file INPUT
-    struct MCInput inp = readInput2();
+    struct MCInput inp = readInput();
     
     // Using values read into inp, create an MCState struct that defines
     //  the state of the simulation throughout the simulation. But

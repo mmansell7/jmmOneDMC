@@ -5,7 +5,7 @@
 #include "readInput.h"
 
 
-struct MCInput readInput2() {
+struct MCInput readInput() {
 
 	/*	Read input arguments:
 			1.  Number of Particles

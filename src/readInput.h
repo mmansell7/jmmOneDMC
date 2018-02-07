@@ -1,3 +1,3 @@
 
-struct MCInput readInput2();
+struct MCInput readInput();
 
