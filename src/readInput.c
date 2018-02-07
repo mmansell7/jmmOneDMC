@@ -5,7 +5,7 @@
 #include "readInput.h"
 
 
-struct MCInput readInput() {
+struct MCInput readInput(char *fstr) {
 
 	/*	Read input arguments:
 			1.  Number of Particles
@@ -33,13 +33,10 @@ struct MCInput readInput() {
 	*/
 	
     struct MCInput inp;
-    FILE *infile = fopen("INPUT","r");
+    FILE *infile = fopen(fstr,"r");
     char line[100];
     const char s[8] = "[ \t\n]";
     char *token;
-    unsigned long int N,nbn,numSteps,cpi,tpi,rnb,rpi,gns,gnb,gpi,seed;
-    double P,T,maxStep,maxdl,rbw,gsw,gbw;
-    void * pot;
     
     
     if (infile==NULL)
@@ -240,33 +237,40 @@ struct MCInput readInput() {
 
     }
     
-    /*
+    return inp;
+
+}
+
+
+int printInput(struct MCInput inp) {
+
     printf("N = %lu\n",inp.N);
     printf("P = %.5G\n",inp.P);
     printf("T = %.5G\n",inp.T);
-    printf("NBN = %u\n",inp.nbn);
+    if ( inp.nbn > 0 ) {
+        printf("NBN = %d\n",inp.nbn);
+    }
+    else {
+        printf("NBN = No neighbor number limit.\n");
+    }
     printf("NUMSTEPS = %lu\n",inp.ns);
     printf("POT = %s\n",inp.potStr);
     printf("MAXSTEP = %.5G\n",inp.maxStep);
     printf("MAXDV = %.5G\n",inp.maxdl);
-    printf("ENGCHECK = %.5G\n",inp.eci);
-    printf("DADJ = %.5G\n",inp.mdai);
-    printf("VADJ = %.5G\n",inp.mvai);
+    printf("ENGCHECK = %lu\n",inp.eci);
+    printf("DADJ = %lu\n",inp.mdai);
+    printf("VADJ = %lu\n",inp.mvai);
     printf("CPI = %lu\n",inp.cpi);
     printf("TPI = %lu\n",inp.tpi);
     printf("GPI = %lu\n",inp.gpi);
     printf("RHOPI = %lu\n",inp.rhopi);
     printf("RBW = %.5G\n",inp.rbw);
     printf("RHONB = %lu\n",inp.rhonb);
-    printf("gBW = %.5G\n",inp.gbw);
+    printf("GBW = %.5G\n",inp.gbw);
     printf("GNB = %lu\n",inp.gnb);
     printf("GSW = %.5G\n",inp.gsw);
     printf("GNS = %d\n",inp.gns);
     printf("SEED = %lu\n",inp.seed);
-    */
-    
-    return inp;
-	
 
-
+    return 0;
 }

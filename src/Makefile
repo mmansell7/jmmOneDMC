@@ -47,9 +47,9 @@ jmmMCState_macbook : jmmMCState.c jmmMCState.h
 
 testInput : readInput
 	${CChen} ${CFLAGShen} -c testInput.c
-	${CChen} ${CFLAGShen} testInput.o readInput.o -o testInput
+	${CChen} ${CFLAGShen} testInput.o readInput.o jmmMCState.o -o testInput
 
-readInput : readInput.c readInput.h
+readInput : jmmMCState_henry2 readInput.c readInput.h
 	${CChen} ${CFLAGShen} -c readInput.c
 
 pot : pot.c pot.h
