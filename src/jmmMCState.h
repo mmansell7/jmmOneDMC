@@ -17,6 +17,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d);
 int fav(struct MCState *mcs);
 int qav(struct MCState *mcs);
 int qavLJ(struct MCState *mcs);
+int qavHarmonic(struct MCState *mcs);
 unsigned long int incrementStep(struct MCState *mcs);
 int Step(struct MCState *mcs);
 int isCoordPrint(struct MCState *mcs);

@@ -61,9 +61,9 @@ double * phiLJ(double *d, void *params) {
 
 double * phiHarmonic(double *d, void *params) {
     double rijm,l;
-    double *phi = (double *) malloc(2*sizeof(double));
+    double *phi = (double *) malloc(6*sizeof(double));
 
-    int *p = (int *) params;
+    double *p = (double *) params;
     
     rijm = *d-1.0;
     phi[0] = rijm*rijm;
@@ -71,9 +71,6 @@ double * phiHarmonic(double *d, void *params) {
     if ( p[0] == 1 ) {
         l = p[1];
         phi[1] = (2/l)*(*d)*rijm;
-    }
-    else {
-        phi[1] = 0;
     }
     
     return phi;
@@ -256,8 +253,7 @@ int qadLJ(struct MCState *mcs,unsigned long int *nm, double *d) {
 
 
 
-	
-int qavLJ(struct MCState *mcs) {
+int qavHarmonic(struct MCState *mcs) {
 	unsigned long int ii,ind;
 	double dQ,ran,lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
 	
@@ -323,4 +319,5 @@ int qavLJ(struct MCState *mcs) {
 
 	return 0;
 }
-*/
+*/	
+

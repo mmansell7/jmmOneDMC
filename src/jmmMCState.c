@@ -13,6 +13,8 @@ static double mcsETest,mcsETrial,mcsE6Trial,mcsE12Trial,mcsVirTrial,mcsVir6Trial
 static double mcsdE6,mcsdE12,mcsdE,mcsdVir6,mcsdVir12,mcsdVir,ran;
 static double *rijTest,*eijTest,*e6ijTest,*e12ijTest;
 static long int gs11,gs12;
+static double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
+static double params[2];
 
 // IMPORTANT. Define the MCState struct. This struct holds the state of the system
 //  and is what other functions operate on in order to read or modify that state.
@@ -242,10 +244,29 @@ struct MCState * setupMCS(struct MCInput inp) {
             e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
             e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
         }
-        else if ( strncmp(mcs->potStr,"HARMONIC",10) ) {
+        else if ( strncmp(mcs->potStr,"HARMONIC",10) == 0 ) {
             mcs->phi        = phiHarmonic;
-            mcs->qad        = fad;
-            mcs->qav        = fav;
+            mcs->qad        = &qad2;
+            mcs->qav        = &fav;
+	    mcs->E6         = -5E10;
+	    mcs->E12        = 5E10;
+	    mcs->Vir6       = -5E10;
+	    mcs->Vir12      = 5E10;
+            mcs->eij        = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->virij      = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->eijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->virijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
+            mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
+            eijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
+            e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
+            e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
         }
         else {
             printf("FATAL ERROR: Unknown potential.\nABORTING SIMULATION\n\n");
@@ -338,7 +359,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
         mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
-        for (ii = 0; ii < mcs->N; ii++) {
+        for (ii = 0; ii < mcs->rhonb; ii++) {
                 mcs->rhol[ii] = 0;
                 mcs->rhoA[ii] = 0;
                 mcs->rhoM[ii] = 0;
@@ -404,7 +425,7 @@ void printStep(struct MCState *mcs) {
 //  energy using knowledge of the previous state).
 int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	unsigned long int ii,jj,ind;
-	double rij1,rij3,rij6,rij7,rij12,rij13,ran;
+	double rij1,rij3,rij6,rij7,rij12,rij13;
 	double *phiij,params[2];
 	params[0] = 1;
 
@@ -426,21 +447,13 @@ int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	for (ind = 0; ind < mcs->N; ind++) {
 		mcs->rTrial[ind] = mcs->r[ind];
 	}
-	for (ind = 0; ind < mcs->numPairs; ind++) {
-		mcs->rijTrial[ind] = mcs->rij[ind];
-	}
-
+	
 	mcs->md = (mcs->rn - 0.5)*2*mcs->maxStep;
 	mcs->rTrial[mcs->nm] = mcs->r[mcs->nm] + mcs->md;
-	mcs->E6Trial = 0;
-	mcs->E12Trial = 0;
-	mcs->ETrial = 0;
-	mcs->Vir6Trial = 0;
-	mcs->Vir12Trial = 0;
-	mcs->VirTrial = 0;
 	if (fabs(mcs->rTrial[mcs->nm]) > (mcs->l/2.0)) {
 		mcs->bndchk = 1;
 		mcs->dAcc[1]++;
+		mcs->ETrial = 10E10;
 	}
 	else {
 		mcs->bndchk = 0;
@@ -448,17 +461,18 @@ int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	fflush(stdout);
 	}
 	
-	mcsETrial      = mcs->ETrial;
-	mcsE6Trial     = mcs->E6Trial;
-	mcsE12Trial    = mcs->E12Trial;
-	mcsVirTrial    = mcs->VirTrial;
-	mcsVir6Trial   = mcs->Vir6Trial;
-	mcsVir12Trial  = mcs->Vir12Trial;
+	mcsETrial      = 0;
+	mcsE12Trial    = 0;
+	mcsE6Trial     = 0;
+	mcsVirTrial    = 0;
+	mcsVir12Trial  = 0;
+	mcsVir6Trial   = 0;
 	
 	if (mcs->bndchk == 0) {
 		params[1] = mcs->l;
 		#pragma omp for private(ii,jj,ind,rij1,rij3,rij6,rij7,rij12,rij13) \
-				reduction(+:mcsE6Trial,mcsE12Trial,mcsVir6Trial,mcsVir12Trial)
+				reduction(+:mcsETrial,mcsE6Trial,mcsE12Trial, \
+                                   mcsVirTrial,mcsVir6Trial,mcsVir12Trial)
 		for (ind = 0; ind < mcs->numPairs; ind++) {
 			ii            = mcs->iii[ind];
 			jj            = mcs->jjj[ind];
@@ -473,35 +487,30 @@ int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			}
 			else {
 				rij1          = mcs->rijTrial[ind];
-				//rij3          = rij1*rij1*rij1;
-				//rij6          = 1/(rij3*rij3);
-				//rij7          = rij6/rij1;
-				//rij12         = rij6*rij6;
-				//rij13         = rij12/rij1;
 				
 				phiij = mcs->phi(&rij1,params);
-				mcs->eijTrial[ind]   = phiij[0];
-				mcs->e12ijTrial[ind] = phiij[2];
-                                mcs->e6ijTrial[ind] = phiij[4];
-                                mcs->virijTrial[ind] = phiij[1];
+				mcs->eijTrial[ind]     = phiij[0];
+				mcs->e12ijTrial[ind]   = phiij[2];
+                                mcs->e6ijTrial[ind]    = phiij[4];
+                                mcs->virijTrial[ind]   = phiij[1];
 				mcs->vir12ijTrial[ind] = phiij[3];
-				mcs->vir6ijTrial[ind] = phiij[5];
+				mcs->vir6ijTrial[ind]  = phiij[5];
 				
-				mcsETrial     += mcs->eijTrial[ind];
-				mcsE6Trial     += mcs->e6ijTrial[ind];
+				mcsETrial      += mcs->eijTrial[ind];
 				mcsE12Trial    += mcs->e12ijTrial[ind];
-				mcsVirTrial   += mcs->virijTrial[ind];
-				mcsVir6Trial   += mcs->vir6ijTrial[ind];
+				mcsE6Trial     += mcs->e6ijTrial[ind];
 				mcsVir12Trial  += mcs->vir12ijTrial[ind];
+				mcsVirTrial    += mcs->virijTrial[ind];
+				mcsVir6Trial   += mcs->vir6ijTrial[ind];
 			}
 		}
 		
 		mcs->ETrial      = mcsETrial;
-		mcs->E6Trial     = mcsE6Trial;
 		mcs->E12Trial    = mcsE12Trial;
+		mcs->E6Trial     = mcsE6Trial;
 		mcs->VirTrial    = mcsVirTrial;
-		mcs->Vir6Trial   = mcsVir6Trial;
 		mcs->Vir12Trial  = mcsVir12Trial;
+		mcs->Vir6Trial   = mcsVir6Trial;
 		
 		
 		#pragma omp single
@@ -515,21 +524,22 @@ int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 		if (mcs->ETrial < mcs->E || mcs->bf > ran) {
 			mcs->dAcc[0]++;
 			mcs->E     = mcs->ETrial;
-			mcs->E6    = mcs->E6Trial;
 			mcs->E12   = mcs->E12Trial;
+			mcs->E6    = mcs->E6Trial;
 			mcs->Vir   = mcs->VirTrial;
-			mcs->Vir6  = mcs->Vir6Trial;
 			mcs->Vir12 = mcs->Vir12Trial;
+			mcs->Vir6  = mcs->Vir6Trial;
+			
 			mcs->r[mcs->nm] = mcs->rTrial[mcs->nm];
-			fflush(stdout);
+			
 			for (ind = 0; ind < mcs->numPairs; ind++) {
 				mcs->rij[ind]     = mcs->rijTrial[ind];
 				mcs->eij[ind]     = mcs->eijTrial[ind];
-				mcs->e6ij[ind]    = mcs->e6ijTrial[ind];
 				mcs->e12ij[ind]   = mcs->e12ijTrial[ind];
+				mcs->e6ij[ind]    = mcs->e6ijTrial[ind];
 				mcs->virij[ind]   = mcs->virijTrial[ind];
-				mcs->vir6ij[ind]  = mcs->vir6ijTrial[ind];
 				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+				mcs->vir6ij[ind]  = mcs->vir6ijTrial[ind];
 			}
 		}
 		else {
@@ -537,6 +547,7 @@ int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 		}
 		}
 	}
+        //printf("After fad, E = %.5G\n",mcs->E);
 	fflush(stdout);
 	return 0;
 	#pragma omp barrier
@@ -702,6 +713,8 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 	unsigned long int ii,jj,dj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13;
         double *phiij,params[2];
+	params[0] = 1;
+	params[1] = mcs->l;
 
 	#pragma omp single
 	{
@@ -732,15 +745,14 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 		#pragma omp single
 		{
 		mcsdE = 0;
-		mcsdE6 = 0;
 		mcsdE12 = 0;
+		mcsdE6 = 0;
 		mcsdVir = 0;
-		mcsdVir6 = 0;
 		mcsdVir12 = 0;
-		params[0] = 1;
-		params[1] = mcs->l;
+		mcsdVir6 = 0;
 		}
-		
+		#pragma omp barrier
+                
 		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE,mcsdE6,mcsdE12,mcsdVir,mcsdVir6,mcsdVir12) nowait
 		for (ii = 0; ii < mcs->nm; ii++) {
 			dj = mcs->nm - ii - 1;
@@ -748,36 +760,33 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			mcs->rijTrial[ind] = mcs->rij[ind] + mcs->md;
 			if ( mcs->nbn >= 0 && dj >= mcs->nbn ) {
 				mcs->eijTrial[ind] = 0;
-                                mcs->e6ijTrial[ind] = 0;
 				mcs->e12ijTrial[ind] = 0;
+                                mcs->e6ijTrial[ind] = 0;
 				mcs->virijTrial[ind] = 0;
-				mcs->vir6ijTrial[ind] = 0;
 				mcs->vir12ijTrial[ind] = 0;
+				mcs->vir6ijTrial[ind] = 0;
 			}
 			else {
 				rij1 = mcs->rijTrial[ind];
-				//rij3 = rij1*rij1*rij1;
-				//rij6 = 1/(rij3*rij3);
-				//rij7 = rij6/rij1;
-				//rij12 = rij6*rij6;
-				//rij13 = rij12/rij1;
-				phiij = mcs->phi(&rij1,params);
-				mcs->eijTrial[ind]   = phiij[0];
-				mcs->e12ijTrial[ind] = phiij[2];
-                                mcs->e6ijTrial[ind] = phiij[4];
-                                mcs->virijTrial[ind] = phiij[1];
+				
+				phiij                  = mcs->phi(&rij1,params);
+				mcs->eijTrial[ind]     = phiij[0];
+				mcs->e12ijTrial[ind]   = phiij[2];
+                                mcs->e6ijTrial[ind]    = phiij[4];
+                                mcs->virijTrial[ind]   = phiij[1];
 				mcs->vir12ijTrial[ind] = phiij[3];
-				mcs->vir6ijTrial[ind] = phiij[5];
+				mcs->vir6ijTrial[ind]  = phiij[5];
 			}
-			mcsdE   = mcsdE - mcs->eij[ind] + mcs->eijTrial[ind];
-			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
-			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
-			mcsdVir = mcsdVir - mcs->virij[ind] + mcs->virijTrial[ind];
-			mcsdVir6 = mcsdVir6 - mcs->vir6ij[ind] + mcs->vir6ijTrial[ind];
+			mcsdE     = mcsdE     - mcs->eij[ind]     + mcs->eijTrial[ind];
+			mcsdE12   = mcsdE12   - mcs->e12ij[ind]   + mcs->e12ijTrial[ind];
+			mcsdE6    = mcsdE6    - mcs->e6ij[ind]    + mcs->e6ijTrial[ind];
+			mcsdVir   = mcsdVir   - mcs->virij[ind]   + mcs->virijTrial[ind];
 			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
+			mcsdVir6  = mcsdVir6  - mcs->vir6ij[ind]  + mcs->vir6ijTrial[ind];
 		}
 
-		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12)
+		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) \
+                            reduction(+:mcsdE,mcsdE6,mcsdE12,mcsdVir,mcsdVir6,mcsdVir12)
 		for (ii = mcs->nm + 1; ii < mcs->N; ii++) {
 			dj = ii - mcs->nm - 1;
 			ind = mcs->indind[mcs->nm][dj];
@@ -792,29 +801,24 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			}
 			else {
 				rij1 = mcs->rijTrial[ind];
-				//rij3 = rij1*rij1*rij1;
-				//rij6 = 1/(rij3*rij3);
-				//rij7 = rij6/rij1;
-				//rij12 = rij6*rij6;
-				//rij13 = rij12/rij1;
-				phiij = mcs->phi(&rij1,params);
-				mcs->eijTrial[ind]   = phiij[0];
-				mcs->e12ijTrial[ind] = phiij[2];
-                                mcs->e6ijTrial[ind] = phiij[4];
-                                mcs->virijTrial[ind] = phiij[1];
+				
+				phiij                  = mcs->phi(&rij1,params);
+				mcs->eijTrial[ind]     = phiij[0];
+				mcs->e12ijTrial[ind]   = phiij[2];
+                                mcs->e6ijTrial[ind]    = phiij[4];
+                                mcs->virijTrial[ind]   = phiij[1];
 				mcs->vir12ijTrial[ind] = phiij[3];
-				mcs->vir6ijTrial[ind] = phiij[5];
+				mcs->vir6ijTrial[ind]  = phiij[5];
 			}
-			mcsdE   = mcsdE - mcs->eij[ind] + mcs->eijTrial[ind];
-			mcsdE6  = mcsdE6  - mcs->e6ij[ind]  + mcs->e6ijTrial[ind];
-			mcsdE12 = mcsdE12 - mcs->e12ij[ind] + mcs->e12ijTrial[ind];
-			mcsdVir = mcsdVir - mcs->virij[ind] + mcs->virijTrial[ind];
-			mcsdVir6 = mcsdVir6 - mcs->vir6ij[ind] + mcs->vir6ijTrial[ind];
+			mcsdE     = mcsdE     - mcs->eij[ind]     + mcs->eijTrial[ind];
+			mcsdE12   = mcsdE12   - mcs->e12ij[ind]   + mcs->e12ijTrial[ind];
+			mcsdE6    = mcsdE6    - mcs->e6ij[ind]    + mcs->e6ijTrial[ind];
+			mcsdVir   = mcsdVir   - mcs->virij[ind]   + mcs->virijTrial[ind];
 			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
+			mcsdVir6  = mcsdVir6  - mcs->vir6ij[ind]  + mcs->vir6ijTrial[ind];
 		}
 		
 		#pragma omp barrier  // THIS BARRIER IS CRITICAL TO CALCULATE dE ACCURATELY (I DO NOT UNDERSTAND WHY THAT SHOULD BE THE CASE)
-		
 		#pragma omp single
 		{
 		mcs->dE = mcsdE;
@@ -836,13 +840,17 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 		if (mcs->dE <= 0 || mcs->bf > ran) {
 			#pragma omp single
 			{
+			//printf("At mid-qad (%lu %.5G->(%.5G)->%.5G), E = %.7G, dE = %.7G\nE should = %.5G\n",
+                        //         mcs->nm,mcs->r[mcs->nm],mcs->md,mcs->rTrial[mcs->nm],mcs->E,
+                        //         mcsdE,mcs->E + mcsdE);
+			fflush(stdout);
 			mcs->dAcc[0]++;
 			mcs->E      += mcs->dE;
-			mcs->E6     += mcs->dE6;
 			mcs->E12    += mcs->dE12;
+			mcs->E6     += mcs->dE6;
 			mcs->Vir    += mcs->dVir;
-			mcs->Vir6   += mcs->dVir6;
 			mcs->Vir12  += mcs->dVir12;
+			mcs->Vir6   += mcs->dVir6;
 			mcs->r[mcs->nm] = mcs->rTrial[mcs->nm];
 			}
 			
@@ -852,11 +860,11 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 				ind = mcs->indind[jj][dj];
 				mcs->rij[ind] = mcs->rijTrial[ind];
 				mcs->eij[ind] = mcs->eijTrial[ind];
-				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
 				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
+				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
 				mcs->virij[ind] = mcs->virijTrial[ind];
-				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
 				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
 			}
 			#pragma omp for private(jj,dj,ind)
 			for (jj = mcs->nm + 1; jj < mcs->N; jj++) {
@@ -864,16 +872,24 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 				ind = mcs->indind[mcs->nm][dj];
 				mcs->rij[ind] = mcs->rijTrial[ind];
 				mcs->eij[ind] = mcs->eijTrial[ind];
-				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
 				mcs->e12ij[ind] = mcs->e12ijTrial[ind];
+				mcs->e6ij[ind] = mcs->e6ijTrial[ind];
 				mcs->virij[ind] = mcs->virijTrial[ind];
-				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
 				mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+				mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
 			}
 			
                         // Short-cut calculation of density and g(x)
 			qagrho(mcs);
-			
+			/*
+			#pragma omp single
+			{
+			printf("r[28]: %.5G  r[32]: %.5G  rij[28][32]: %.5G\n",mcs->r[28],mcs->r[32],mcs->rij[mcs->indind[28][3]]);
+			printf("r[32]: %.5G  r[34]: %.5G  rij[32][34]: %.5G\n",mcs->r[32],mcs->r[34],mcs->rij[mcs->indind[32][1]]);
+			printf("r[32]: %.5G  r[35]: %.5G  rij[32][35]: %.5G\n",mcs->r[32],mcs->r[35],mcs->rij[mcs->indind[32][2]]);
+			fflush(stdout);
+			}
+			*/
 		}
 		else {
 		#pragma omp single
@@ -933,7 +949,8 @@ int qadLJ(struct MCState *mcs,unsigned long int *nm, double *d) {
 		mcsdVir12 = 0;
 		}
 		
-		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12) nowait
+		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) \
+                    reduction(+:mcsdE,mcsdE6,mcsdE12,mcsdVir,mcsdVir6,mcsdVir12) nowait
 		for (ii = 0; ii < mcs->nm; ii++) {
 			dj = mcs->nm - ii - 1;
 			ind = mcs->indind[ii][dj];
@@ -962,7 +979,8 @@ int qadLJ(struct MCState *mcs,unsigned long int *nm, double *d) {
 			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
 		}
 
-		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) reduction(+:mcsdE6,mcsdE12,mcsdVir6,mcsdVir12)
+		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) \
+                      reduction(+:mcsdE,mcsdE6,mcsdE12,mcsdVir,mcsdVir6,mcsdVir12)
 		for (ii = mcs->nm + 1; ii < mcs->N; ii++) {
 			dj = ii - mcs->nm - 1;
 			ind = mcs->indind[mcs->nm][dj];
@@ -1073,8 +1091,10 @@ int qav(struct MCState *mcs) {
 
 	
 int qavLJ(struct MCState *mcs) {
-	unsigned long int ii,ind;
-	double dQ,ran,lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
+	unsigned long int ii,jj,ind;
+	double dQ;
+	double *phiij,params[2];
+	params[0] = 1;
 	
 	#pragma omp single
 	{
@@ -1083,8 +1103,8 @@ int qavLJ(struct MCState *mcs) {
 	lRat3 = lRat1*lRat1*lRat1;
 	lRat6 = 1/(lRat3*lRat3);
 	lRat12 = lRat6*lRat6;
-	mcs->E6Trial = lRat6*mcs->E6;
 	mcs->E12Trial = lRat12*mcs->E12;
+	mcs->E6Trial = lRat6*mcs->E6;
 	mcs->dE = mcs->E12Trial - mcs->E6Trial - mcs->E;
 	mcs->bf   = exp(-(mcs->dE + mcs->P*mcs->dl)/mcs->T + mcs->N*log(lRat1));
 
@@ -1097,11 +1117,12 @@ int qavLJ(struct MCState *mcs) {
 		#pragma omp single
 		{
 		mcs->vAcc[0]++;
-		mcs->E6  = mcs->E6Trial;
+		mcs->E   = mcs->E + mcs->dE;
 		mcs->E12 = mcs->E12Trial;
-		mcs->E      = mcs->E12 - mcs->E6;
+		mcs->E6  = mcs->E6Trial;
 		
 		mcs->l = mcs->l + mcs->dl;
+		params[1] = mcs->l;
 		
 		lRat7 = lRat6/lRat1;
 		lRat13 = lRat12/lRat1;
@@ -1117,11 +1138,16 @@ int qavLJ(struct MCState *mcs) {
 		
 		#pragma omp for private(ind)
 		for (ind = 0; ind < mcs->numPairs; ind++) { 
+			ii = mcs->iii[ind];
+			jj = mcs->jjj[ind];
 			mcs->rij[ind]     = lRat1*mcs->rij[ind];
-			mcs->e6ij[ind]    = lRat6*mcs->e6ij[ind];
-			mcs->e12ij[ind]   = lRat12*mcs->e12ij[ind];
-			mcs->vir6ij[ind]  = lRat7*mcs->vir6ij[ind];
-			mcs->vir12ij[ind] = lRat13*mcs->vir12ij[ind];
+      			phiij       = mcs->phi(&(mcs->rij[ind]),params);
+	      		mcs->eij[ind] = phiij[0];
+      			mcs->e12ij[ind] = phiij[2];
+      			mcs->e6ij[ind] = phiij[4];
+			mcs->virij[ind]  = phiij[1];
+			mcs->vir12ij[ind] = phiij[3];
+			mcs->vir6ij[ind]  = phiij[5];
 		}
 		
 		fgrho(mcs);
@@ -1179,10 +1205,12 @@ int Step(struct MCState *mcs) {
   //  do a volume change trial.
   if (mcs->nm < mcs->N) {
     // Do a trial displacement on particle nm
+   //printf("Displacing!  ************ *   * *   *   *   *   *\n");
     qad(mcs,&(mcs->nm),&(mcs->rn));
   }
   else {
     // Do a volume change trial
+    //printf("qav-ing!  ************ *   * *   *   *   *   *\n");
     qav(mcs);
   }
   
@@ -1335,6 +1363,7 @@ int ECheck(struct MCState *mcs) {
   double *phiij,params[2];
   params[0] = 0;
   
+  #pragma omp barrier 
   mcsETest = 0;
   #pragma omp for private(iq,ii,jj,rij1,rij3,rij6,rij12) reduction(+:mcsETest)
   for (iq = 0; iq < mcs->numPairs; iq++) {
@@ -1349,9 +1378,7 @@ int ECheck(struct MCState *mcs) {
     }
     else {
       rij1 = rijTest[iq];
-      //rij3 = rij1*rij1*rij1;
-      //rij6 = 1/(rij3*rij3);
-      //rij12 = rij6*rij6;
+      
       phiij       = mcs->phi(&rij1,params);
       eijTest[iq] = phiij[0];
       e12ijTest[iq] = phiij[2];
@@ -1359,14 +1386,24 @@ int ECheck(struct MCState *mcs) {
       mcsETest += eijTest[iq];
     }
   }
+  //printf("Final mcsETest: %.5G\n",mcsETest);
   #pragma omp single
   {
-  if (fabs(mcsETest - mcs->E) > 0.001) {
+  if (fabs(mcsETest - mcs->E) > 0.000001) {
     resultFlag = 1;
-    fprintf(stdout,"\n\n\n### !!! $$$ Energy discrepancy!!! ######### !!!!!!!!!!! $$$$$"
-         "$$$$$ !!!!!!!!\nE = %.8G, ETest = %.8G, Resetting energy "
-         "to that of full calculation (E = %.8G)\n\n",mcs->E,mcsETest,mcsETest);
+    fprintf(stdout,"\n### !!! $$$ Energy discrepancy!!! ######### !!!!!!!!!!! $$$$$"
+         "$$$$$ !!!!!!!!\nWhile attempting to move particle: %lu by %.5G\nE = %.8G, ETest = %.8G, Resetting energy "
+         "to that of full calculation (E = %.8G)\n\n",mcs->nm,mcs->md,mcs->E,mcsETest,mcsETest);
+    
     mcs->E = mcsETest;
+    for (iq = 0; iq < mcs->numPairs; iq++) {
+        if ( fabs(eijTest[iq] - mcs->eij[iq]) > 0.0000001 ) { 
+            ii = mcs->iii[iq];
+            jj = mcs->jjj[iq];
+            printf("r[%lu]: %.5G  r[%lu]: %.5G  rij[%lu][%lu]: %.5G  rijTest[%lu][%lu]: %.5G  eijTest[%lu][%lu] %.5G   eij[%lu][%lu] = %.5G  mcsETest %.5G\n",
+                    ii,mcs->r[ii],jj,mcs->r[jj],ii,jj,mcs->rij[iq],ii,jj,rijTest[iq],ii,jj,eijTest[iq],ii,jj,mcs->eij[iq],mcsETest);
+        }
+    }
   }
   else {
     resultFlag = 0;
@@ -1434,52 +1471,71 @@ int printAcc(struct MCState *mcs) {
 //  to short-cut the calculation). Update system state according to outcome.
 int fav(struct MCState *mcs) {
 	unsigned long int ii,jj,ind;
-	double lRat1,ran;
 	double rij1a,rij3a,rij6a,rij7a,rij12a,rij13a;
-
+	double *phiij;
+	
 	#pragma omp single
 	{
 	mcs->bndchk = 0;
 	mcsETrial = 0;
 	mcsVirTrial = 0;
 	mcs->dl = (mcs->rn-0.5)*2*mcs->maxdl;
-	lRat1 = (mcs->l + mcs->dl) / mcs->l;
+	
+	params[0] = 1;
+	params[1] = mcs->l + mcs->dl;
+	
+	lRat1 = params[1] / mcs->l;
 	for (ind = 0; ind < mcs->N; ind++) {
 		mcs->rTrial[ind] = mcs->r[ind]*lRat1;
 	}
 
+	mcsETrial     = 0;
+	mcsE12Trial   = 0;
+	mcsE6Trial    = 0;
+	mcsVirTrial   = 0;
+	mcsVir12Trial = 0;
+	mcsVir6Trial  = 0;
 	}
-
-	#pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) reduction (+:mcsETrial,mcsVirTrial)
+	
+	#pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) \
+             reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
 	for (ind = 0; ind < mcs->numPairs; ind++) {
 		ii            = mcs->iii[ind];
 		jj            = mcs->jjj[ind];
 
-		rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
 		if ( mcs->nbn >= 0 && jj-ii > mcs->nbn) {
-			mcs->e6ijTrial[ind]       = 0;
+			mcs->eijTrial[ind]        = 0;
 			mcs->e12ijTrial[ind]      = 0;
-			mcs->vir6ijTrial[ind]     = 0;
+			mcs->e6ijTrial[ind]       = 0;
+			mcs->virijTrial[ind]      = 0;
 			mcs->vir12ijTrial[ind]    = 0;
+			mcs->vir6ijTrial[ind]     = 0;
 		}
 		else {
-			rij3a          = rij1a*rij1a*rij1a;
-			rij6a          = 1/(rij3a*rij3a);
-			rij7a          = rij6a/rij1a;
-			rij12a         = rij6a*rij6a;
-			rij13a         = rij12a/rij1a;
+			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
+			
+			phiij                   = mcs->phi(&rij1a,params);
+			mcs->eijTrial[ind]      = phiij[0];
+			mcs->e12ijTrial[ind]    = phiij[2];
+			mcs->e6ijTrial[ind]     = phiij[4];
+			mcs->virijTrial[ind]    = phiij[1];
+			mcs->vir12ijTrial[ind]  = phiij[3];
+			mcs->vir6ijTrial[ind]   = phiij[5];
 	
-			mcs->e6ijTrial[ind]     = 4*rij6a;
-			mcs->e12ijTrial[ind]    = 4*rij12a;
-			mcs->vir6ijTrial[ind]     = 24/mcs->l*rij6a;
-			mcs->vir12ijTrial[ind]    = 48/mcs->l*rij12a;
-	
-			mcsETrial            += mcs->e12ijTrial[ind] - mcs->e6ijTrial[ind];
-			mcsVirTrial          += mcs->vir12ijTrial[ind] - mcs->vir6ijTrial[ind];
+			mcsETrial            += mcs->eijTrial[ind];
+			mcsE12Trial            += mcs->e12ijTrial[ind];
+			mcsE6Trial            += mcs->e6ijTrial[ind];
+			mcsVirTrial          += mcs->virijTrial[ind];
+			mcsVir12Trial          += mcs->vir12ijTrial[ind];
+			mcsVir6Trial          += mcs->vir6ijTrial[ind];
 		}
 	}
-			mcs->ETrial           = mcsETrial;
-			mcs->VirTrial         = mcsVirTrial;
+	mcs->ETrial           = mcsETrial;
+	mcs->E12Trial           = mcsE12Trial;
+	mcs->E6Trial           = mcsE6Trial;
+	mcs->VirTrial         = mcsVirTrial;
+	mcs->Vir12Trial         = mcsVir12Trial;
+	mcs->Vir6Trial         = mcsVir6Trial;
 
 	#pragma omp single
 	{
@@ -1494,16 +1550,24 @@ int fav(struct MCState *mcs) {
 		mcs->vAcc[0]++;
 		mcs->l = mcs->l + mcs->dl;
 		mcs->E = mcs->ETrial;
+		mcs->E12 = mcs->E12Trial;
+		mcs->E6 = mcs->E6Trial;
 		mcs->Vir = mcs->VirTrial;
+		mcs->Vir12 = mcs->Vir12Trial;
+		mcs->Vir6 = mcs->Vir6Trial;
 		for (ind = 0; ind < mcs->N; ind++) {
 			mcs->r[ind] = mcs->rTrial[ind];
 		}
 		for (ind = 0; ind < mcs->numPairs; ind++) {
-			mcs->rij[ind] = lRat1*mcs->rijTrial[ind];
-			mcs->e6ij[ind] = mcs->e6ijTrial[ind];
+			ii = mcs->iii[ind];
+			jj = mcs->jjj[ind];
+			mcs->rij[ind] = mcs->r[jj] - mcs->r[ii];
+			mcs->eij[ind] = mcs->eijTrial[ind];
 			mcs->e12ij[ind] = mcs->e12ijTrial[ind];
-			mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
+			mcs->e6ij[ind] = mcs->e6ijTrial[ind];
+			mcs->virij[ind] = mcs->virijTrial[ind];
 			mcs->vir12ij[ind] = mcs->vir12ijTrial[ind];
+			mcs->vir6ij[ind] = mcs->vir6ijTrial[ind];
 		}
 	}
 	else {
@@ -1606,6 +1670,7 @@ int qagrho(struct MCState *mcs) {
 	
   return 0;
 }
+
 
 
 
