@@ -182,7 +182,9 @@ int printMCP(struct MCState *mcs1) {
                   mcs1->rhopi,mcs1->gsw);
         printf("Number of g(x) segments: %d\ng(x) bin width: %.5G\nNumber of g(x) bins: %lu\n",mcs1->gns,mcs1->gbw,mcs1->gnb);
         printf("g(x) print interval: %lu\n\nSeed: %lu\n\n",mcs1->gpi,mcs1->seed);
-        fflush(stdout);
+        printf("Adjust max. displacement every %lu steps.\n",mcs1->mdai);
+	printf("Adjust max. volume change every %lu steps.\n",mcs1->mvai);
+	fflush(stdout);
 	
 	return 0;
 }	
@@ -1223,10 +1225,12 @@ int Step(struct MCState *mcs) {
   if (isECheck(mcs) ) {
     ECheck(mcs);
   }
-  
+  #pragma omp single
+  {
   updateThermo(mcs);
+  }
   fflush(stdout);
-
+  
   return 0;
 
 }
@@ -1342,7 +1346,7 @@ int printThermo(struct MCState *mcs) {
 
 // Accumulate thermodynamic property values
 int updateThermo(struct MCState *mcs) {
-
+    
     mcs->lA = mcs->lA + mcs->l;
     mcs->lSA = mcs->lSA + mcs->l*mcs->l; 
     mcs->EA = mcs->EA + mcs->E; 

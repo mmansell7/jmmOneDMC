@@ -65,12 +65,16 @@ double * phiHarmonic(double *d, void *params) {
 
     double *p = (double *) params;
     
-    rijm = *d-1.0;
-    phi[0] = rijm*rijm;
-    
-    if ( p[0] == 1 ) {
-        l = p[1];
-        phi[1] = (2/l)*(*d)*rijm;
+    if ( *d >= 0 ) {
+        rijm = *d-1.0;
+        phi[0] = rijm*rijm;
+    }
+    else {
+        phi[0] = 10E10;
+        if ( p[0] == 1 ) {
+            l = p[1];
+            phi[1] = (2/l)*(*d)*rijm;
+        }
     }
     
     return phi;
