@@ -1,0 +1,698 @@
+eqSteps: 25000000
+printInterval: 10000
+Analyzing runs in ../data/LJ/m2/ using 25000000 equilibration steps.
+
+Found files: ['../data/LJ/m2/P0.5_T1.0_m2/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.8_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.2_m2/thermo.dat.mcs', '../data/LJ/m2/P0.4_T0.3_753809/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.2_m2/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.3_m2/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.3_675895/thermo.dat', '../data/LJ/m2/P0.4_T0.5_678604/thermo.dat', '../data/LJ/m2/P0.3_T0.4_753985/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.8_m2/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.9_m2/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.7_753987/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.4_m2/thermo.dat.mcs', '../data/LJ/m2/P0.6_T0.5_678605/thermo.dat', '../data/LJ/m2/P0.4_T0.7_753815/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.4_m2/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.6_m2/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.7_m2/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.4_753872/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.4_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.1_m2/thermo.dat.mcs', '../data/LJ/m2/P0.4_T0.6_753813/thermo.dat.mcs', '../data/LJ/m2/P0.4_T0.9_753817/thermo.dat.mcs', '../data/LJ/m2/P0.6_T0.9_753853/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.4_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.6_m2/thermo.dat.mcs', '../data/LJ/m2/P0.3_T1.0_753992/thermo.dat.mcs', '../data/LJ/m2/P0.6_T0.4_753849/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.7_m2/thermo.dat.mcs', '../data/LJ/m2/P0.4_T0.8_753816/thermo.dat.mcs', '../data/LJ/m2/P0.4_T0.2_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.8_m2/thermo.dat.mcs', '../data/LJ/m2/P0.5_T0.1_m2/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.5_675920/thermo.dat', '../data/LJ/m2/P0.6_T0.8_753852/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.8_m2/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.9_m2/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.1_m2/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.3_m2/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.2_m2/thermo.dat.mcs', '../data/LJ/m2/P0.5_T0.3_675905/thermo.dat', '../data/LJ/m2/P0.6_T0.7_753851/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.5_m2/thermo.dat.mcs', '../data/LJ/m2/P0.4_T0.4_753812/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.2_753870/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.5_m2/thermo.dat.mcs', '../data/LJ/m2/P1.0_T1.0_m2/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.6_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.5_678646/thermo.dat', '../data/LJ/m2/P0.5_T0.9_m2/thermo.dat.mcs', '../data/LJ/m2/P0.5_T0.8_m2/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.2_753984/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.7_753874/thermo.dat.mcs', '../data/LJ/m2/P0.8_T1.0_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.3_m2/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.9_753991/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.2_m2/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.1_m2/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.3_m2/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.6_753986/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.1_m2/thermo.dat.mcs', '../data/LJ/m2/P0.6_T0.3_753848/thermo.dat.mcs', '../data/LJ/m2/P0.2_T0.8_m2/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.1_753869/thermo.dat.mcs', '../data/LJ/m2/P0.5_T0.4_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.7_m2/thermo.dat.mcs', '../data/LJ/m2/P0.5_T0.5_675913/thermo.dat', '../data/LJ/m2/P0.1_T1.0_m2/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.1_m2/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.9_753876/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.5_678651/thermo.dat', '../data/LJ/m2/P0.5_T0.2_m2/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.9_m2/thermo.dat.mcs', '../data/LJ/m2/P0.9_T1.0_m2/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.9_m2/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.5_678649/thermo.dat', '../data/LJ/m2/P1.0_T0.6_m2/thermo.dat.mcs', '../data/LJ/m2/P0.6_T1.0_753854/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.4_m2/thermo.dat.mcs', '../data/LJ/m2/P0.8_T0.9_m2/thermo.dat.mcs', '../data/LJ/m2/P0.1_T0.3_m2/thermo.dat.mcs', '../data/LJ/m2/P0.7_T1.0_753879/thermo.dat.mcs', '../data/LJ/m2/P0.2_T1.0_m2/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.3_753871/thermo.dat.mcs', '../data/LJ/m2/P0.5_T0.7_675914/thermo.dat', '../data/LJ/m2/P0.7_T0.8_753875/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.5_675919/thermo.dat', '../data/LJ/m2/P0.2_T0.7_m2/thermo.dat.mcs', '../data/LJ/m2/P0.6_T0.6_753850/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.8_753990/thermo.dat.mcs', '../data/LJ/m2/P0.6_T0.2_753847/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.7_m2/thermo.dat.mcs', '../data/LJ/m2/P0.7_T0.6_753873/thermo.dat.mcs', '../data/LJ/m2/P0.4_T1.0_753818/thermo.dat.mcs', '../data/LJ/m2/P1.0_T0.2_m2/thermo.dat.mcs', '../data/LJ/m2/P0.9_T0.6_m2/thermo.dat.mcs', '../data/LJ/m2/P0.4_T0.1_753805/thermo.dat.mcs', '../data/LJ/m2/P0.3_T0.1_753970/thermo.dat.mcs', '../data/LJ/m2/P0.6_T0.1_753846/thermo.dat.mcs', '../data/LJ/m2/P0.5_T0.6_m2/thermo.dat.mcs']
+
+Analyzing file: ../data/LJ/m2/P0.5_T1.0_m2/thermo.dat.mcs
+
+P: 0.5  T: 1.0
+Total mean energy: 625.441358113
+BlockSize: 100000
+numBlocks: 182
+stdevs shape: (0, 2)
+BlockSize: 130000
+numBlocks: 140
+stdevs shape: (1, 2)
+BlockSize: 170000
+numBlocks: 107
+stdevs shape: (2, 2)
+BlockSize: 230000
+numBlocks: 79
+stdevs shape: (3, 2)
+BlockSize: 300000
+numBlocks: 60
+stdevs shape: (4, 2)
+BlockSize: 390000
+numBlocks: 46
+stdevs shape: (5, 2)
+BlockSize: 510000
+numBlocks: 35
+stdevs shape: (6, 2)
+BlockSize: 670000
+numBlocks: 27
+stdevs shape: (7, 2)
+BlockSize: 880000
+numBlocks: 20
+stdevs shape: (8, 2)
+BlockSize: 1150000
+numBlocks: 15
+stdevs shape: (9, 2)
+BlockSize: 1500000
+numBlocks: 12
+stdevs shape: (10, 2)
+BlockSize: 1950000
+numBlocks: 9
+stdevs shape: (11, 2)
+BlockSize: 2540000
+numBlocks: 7
+stdevs shape: (12, 2)
+BlockSize: 3310000
+numBlocks: 5
+stdevs shape: (13, 2)
+BlockSize: 4310000
+numBlocks: 4
+stdevs shape: (14, 2)
+BlockSize: 5610000
+numBlocks: 3
+stdevs shape: (15, 2)
+BlockSize: 7300000
+numBlocks: 2
+stdevs shape: (16, 2)
+Stdevs: [[  1.00000000e+05   1.30404121e+01]
+ [  1.30000000e+05   1.21009510e+01]
+ [  1.70000000e+05   1.07237156e+01]
+ [  2.30000000e+05   9.65194083e+00]
+ [  3.00000000e+05   8.79225998e+00]
+ [  3.90000000e+05   7.39579097e+00]
+ [  5.10000000e+05   7.15805590e+00]
+ [  6.70000000e+05   7.15731282e+00]
+ [  8.80000000e+05   6.21865424e+00]
+ [  1.15000000e+06   5.97421817e+00]
+ [  1.50000000e+06   5.49090341e+00]
+ [  1.95000000e+06   4.32981383e+00]
+ [  2.54000000e+06   4.17449992e+00]
+ [  3.31000000e+06   4.22169554e+00]
+ [  4.31000000e+06   9.60808339e-01]
+ [  5.61000000e+06   1.49011136e+00]
+ [  7.30000000e+06   7.68416438e-03]]
+Analyzing file: ../data/LJ/m2/P0.1_T0.8_m2/thermo.dat.mcs
+
+P: 0.1  T: 0.8
+Total mean energy: 375.380800529
+BlockSize: 100000
+numBlocks: 436
+stdevs shape: (0, 2)
+BlockSize: 130000
+numBlocks: 335
+stdevs shape: (1, 2)
+BlockSize: 170000
+numBlocks: 256
+stdevs shape: (2, 2)
+BlockSize: 230000
+numBlocks: 189
+stdevs shape: (3, 2)
+BlockSize: 300000
+numBlocks: 145
+stdevs shape: (4, 2)
+BlockSize: 390000
+numBlocks: 111
+stdevs shape: (5, 2)
+BlockSize: 510000
+numBlocks: 85
+stdevs shape: (6, 2)
+BlockSize: 670000
+numBlocks: 65
+stdevs shape: (7, 2)
+BlockSize: 880000
+numBlocks: 49
+stdevs shape: (8, 2)
+BlockSize: 1150000
+numBlocks: 37
+stdevs shape: (9, 2)
+BlockSize: 1500000
+numBlocks: 29
+stdevs shape: (10, 2)
+BlockSize: 1950000
+numBlocks: 22
+stdevs shape: (11, 2)
+BlockSize: 2540000
+numBlocks: 17
+stdevs shape: (12, 2)
+BlockSize: 3310000
+numBlocks: 13
+stdevs shape: (13, 2)
+BlockSize: 4310000
+numBlocks: 10
+stdevs shape: (14, 2)
+BlockSize: 5610000
+numBlocks: 7
+stdevs shape: (15, 2)
+BlockSize: 7300000
+numBlocks: 5
+stdevs shape: (16, 2)
+BlockSize: 9490000
+numBlocks: 4
+stdevs shape: (17, 2)
+BlockSize: 12340000
+numBlocks: 3
+stdevs shape: (18, 2)
+BlockSize: 16050000
+numBlocks: 2
+stdevs shape: (19, 2)
+BlockSize: 20870000
+numBlocks: 2
+stdevs shape: (20, 2)
+Stdevs: [[  1.00000000e+05   2.49288575e+01]
+ [  1.30000000e+05   2.46486277e+01]
+ [  1.70000000e+05   2.43533188e+01]
+ [  2.30000000e+05   2.40212574e+01]
+ [  3.00000000e+05   2.36567843e+01]
+ [  3.90000000e+05   2.34816122e+01]
+ [  5.10000000e+05   2.31378460e+01]
+ [  6.70000000e+05   2.31068403e+01]
+ [  8.80000000e+05   2.30146684e+01]
+ [  1.15000000e+06   2.22399338e+01]
+ [  1.50000000e+06   2.24394779e+01]
+ [  1.95000000e+06   2.20697977e+01]
+ [  2.54000000e+06   2.27564456e+01]
+ [  3.31000000e+06   2.21211223e+01]
+ [  4.31000000e+06   2.16800643e+01]
+ [  5.61000000e+06   2.01262202e+01]
+ [  7.30000000e+06   1.97324613e+01]
+ [  9.49000000e+06   1.99786837e+01]
+ [  1.23400000e+07   1.68333632e+01]
+ [  1.60500000e+07   1.59995400e+01]
+ [  2.08700000e+07   2.13697840e+01]]
+Analyzing file: ../data/LJ/m2/P0.8_T0.2_m2/thermo.dat.mcs
+
+P: 0.8  T: 0.2
+Total mean energy: -99.9962203126
+BlockSize: 100000
+numBlocks: 252
+stdevs shape: (0, 2)
+BlockSize: 130000
+numBlocks: 194
+stdevs shape: (1, 2)
+BlockSize: 170000
+numBlocks: 148
+stdevs shape: (2, 2)
+BlockSize: 230000
+numBlocks: 109
+stdevs shape: (3, 2)
+BlockSize: 300000
+numBlocks: 84
+stdevs shape: (4, 2)
+BlockSize: 390000
+numBlocks: 64
+stdevs shape: (5, 2)
+BlockSize: 510000
+numBlocks: 49
+stdevs shape: (6, 2)
+BlockSize: 670000
+numBlocks: 37
+stdevs shape: (7, 2)
+BlockSize: 880000
+numBlocks: 28
+stdevs shape: (8, 2)
+BlockSize: 1150000
+numBlocks: 21
+stdevs shape: (9, 2)
+BlockSize: 1500000
+numBlocks: 16
+stdevs shape: (10, 2)
+BlockSize: 1950000
+numBlocks: 12
+stdevs shape: (11, 2)
+BlockSize: 2540000
+numBlocks: 9
+stdevs shape: (12, 2)
+BlockSize: 3310000
+numBlocks: 7
+stdevs shape: (13, 2)
+BlockSize: 4310000
+numBlocks: 5
+stdevs shape: (14, 2)
+BlockSize: 5610000
+numBlocks: 4
+stdevs shape: (15, 2)
+BlockSize: 7300000
+numBlocks: 3
+stdevs shape: (16, 2)
+BlockSize: 9490000
+numBlocks: 2
+stdevs shape: (17, 2)
+BlockSize: 12340000
+numBlocks: 2
+stdevs shape: (18, 2)
+Stdevs: [[  1.00000000e+05   3.34945059e+00]
+ [  1.30000000e+05   3.13387322e+00]
+ [  1.70000000e+05   2.89609871e+00]
+ [  2.30000000e+05   2.57624641e+00]
+ [  3.00000000e+05   2.53517012e+00]
+ [  3.90000000e+05   2.27538876e+00]
+ [  5.10000000e+05   2.06918628e+00]
+ [  6.70000000e+05   1.86971946e+00]
+ [  8.80000000e+05   1.56090146e+00]
+ [  1.15000000e+06   1.54817125e+00]
+ [  1.50000000e+06   1.29036286e+00]
+ [  1.95000000e+06   1.26786097e+00]
+ [  2.54000000e+06   1.36238301e+00]
+ [  3.31000000e+06   1.14879807e+00]
+ [  4.31000000e+06   1.00929820e+00]
+ [  5.61000000e+06   7.40791543e-01]
+ [  7.30000000e+06   5.18517866e-01]
+ [  9.49000000e+06   4.36022287e-02]
+ [  1.23400000e+07   1.55374125e-01]]
+Analyzing file: ../data/LJ/m2/P0.4_T0.3_753809/thermo.dat.mcs
+
+P: 0.4  T: 0.3
+Total mean energy: -614.933730696
+BlockSize: 100000
+numBlocks: 2516
+stdevs shape: (0, 2)
+BlockSize: 130000
+numBlocks: 1935
+stdevs shape: (1, 2)
+BlockSize: 170000
+numBlocks: 1480
+stdevs shape: (2, 2)
+BlockSize: 230000
+numBlocks: 1094
+stdevs shape: (3, 2)
+BlockSize: 300000
+numBlocks: 838
+stdevs shape: (4, 2)
+BlockSize: 390000
+numBlocks: 645
+stdevs shape: (5, 2)
+BlockSize: 510000
+numBlocks: 493
+stdevs shape: (6, 2)
+BlockSize: 670000
+numBlocks: 375
+stdevs shape: (7, 2)
+BlockSize: 880000
+numBlocks: 285
+stdevs shape: (8, 2)
+BlockSize: 1150000
+numBlocks: 218
+stdevs shape: (9, 2)
+BlockSize: 1500000
+numBlocks: 167
+stdevs shape: (10, 2)
+BlockSize: 1950000
+numBlocks: 129
+stdevs shape: (11, 2)
+BlockSize: 2540000
+numBlocks: 99
+stdevs shape: (12, 2)
+BlockSize: 3310000
+numBlocks: 76
+stdevs shape: (13, 2)
+BlockSize: 4310000
+numBlocks: 58
+stdevs shape: (14, 2)
+BlockSize: 5610000
+numBlocks: 44
+stdevs shape: (15, 2)
+BlockSize: 7300000
+numBlocks: 34
+stdevs shape: (16, 2)
+BlockSize: 9490000
+numBlocks: 26
+stdevs shape: (17, 2)
+BlockSize: 12340000
+numBlocks: 20
+stdevs shape: (18, 2)
+BlockSize: 16050000
+numBlocks: 15
+stdevs shape: (19, 2)
+BlockSize: 20870000
+numBlocks: 12
+stdevs shape: (20, 2)
+BlockSize: 27140000
+numBlocks: 9
+stdevs shape: (21, 2)
+BlockSize: 35290000
+numBlocks: 7
+stdevs shape: (22, 2)
+BlockSize: 45880000
+numBlocks: 5
+stdevs shape: (23, 2)
+BlockSize: 59650000
+numBlocks: 4
+stdevs shape: (24, 2)
+BlockSize: 77550000
+numBlocks: 3
+stdevs shape: (25, 2)
+BlockSize: 100820000
+numBlocks: 2
+stdevs shape: (26, 2)
+Stdevs: [[  1.00000000e+05   4.15141323e+00]
+ [  1.30000000e+05   3.84147151e+00]
+ [  1.70000000e+05   3.55483653e+00]
+ [  2.30000000e+05   3.15354398e+00]
+ [  3.00000000e+05   2.89935220e+00]
+ [  3.90000000e+05   2.70678206e+00]
+ [  5.10000000e+05   2.44014439e+00]
+ [  6.70000000e+05   2.23657849e+00]
+ [  8.80000000e+05   2.12227502e+00]
+ [  1.15000000e+06   1.87451386e+00]
+ [  1.50000000e+06   1.72958903e+00]
+ [  1.95000000e+06   1.62392325e+00]
+ [  2.54000000e+06   1.50323017e+00]
+ [  3.31000000e+06   1.35588496e+00]
+ [  4.31000000e+06   1.28437440e+00]
+ [  5.61000000e+06   1.17230406e+00]
+ [  7.30000000e+06   9.83543727e-01]
+ [  9.49000000e+06   9.64520027e-01]
+ [  1.23400000e+07   9.76189880e-01]
+ [  1.60500000e+07   7.54594250e-01]
+ [  2.08700000e+07   5.36542677e-01]
+ [  2.71400000e+07   5.35386284e-01]
+ [  3.52900000e+07   4.01849204e-01]
+ [  4.58800000e+07   2.95036305e-01]
+ [  5.96500000e+07   2.09858267e-01]
+ [  7.75500000e+07   4.74066961e-01]
+ [  1.00820000e+08   1.02707127e-01]]
+Analyzing file: ../data/LJ/m2/P0.9_T0.2_m2/thermo.dat.mcs
+
+P: 0.9  T: 0.2
+Total mean energy: -99.5024558366
+BlockSize: 100000
+numBlocks: 1468
+stdevs shape: (0, 2)
+BlockSize: 130000
+numBlocks: 1129
+stdevs shape: (1, 2)
+BlockSize: 170000
+numBlocks: 863
+stdevs shape: (2, 2)
+BlockSize: 230000
+numBlocks: 638
+stdevs shape: (3, 2)
+BlockSize: 300000
+numBlocks: 489
+stdevs shape: (4, 2)
+BlockSize: 390000
+numBlocks: 376
+stdevs shape: (5, 2)
+BlockSize: 510000
+numBlocks: 287
+stdevs shape: (6, 2)
+BlockSize: 670000
+numBlocks: 219
+stdevs shape: (7, 2)
+BlockSize: 880000
+numBlocks: 166
+stdevs shape: (8, 2)
+BlockSize: 1150000
+numBlocks: 127
+stdevs shape: (9, 2)
+BlockSize: 1500000
+numBlocks: 97
+stdevs shape: (10, 2)
+BlockSize: 1950000
+numBlocks: 75
+stdevs shape: (11, 2)
+BlockSize: 2540000
+numBlocks: 57
+stdevs shape: (12, 2)
+BlockSize: 3310000
+numBlocks: 44
+stdevs shape: (13, 2)
+BlockSize: 4310000
+numBlocks: 34
+stdevs shape: (14, 2)
+BlockSize: 5610000
+numBlocks: 26
+stdevs shape: (15, 2)
+BlockSize: 7300000
+numBlocks: 20
+stdevs shape: (16, 2)
+BlockSize: 9490000
+numBlocks: 15
+stdevs shape: (17, 2)
+BlockSize: 12340000
+numBlocks: 11
+stdevs shape: (18, 2)
+BlockSize: 16050000
+numBlocks: 9
+stdevs shape: (19, 2)
+BlockSize: 20870000
+numBlocks: 7
+stdevs shape: (20, 2)
+BlockSize: 27140000
+numBlocks: 5
+stdevs shape: (21, 2)
+BlockSize: 35290000
+numBlocks: 4
+stdevs shape: (22, 2)
+BlockSize: 45880000
+numBlocks: 3
+stdevs shape: (23, 2)
+BlockSize: 59650000
+numBlocks: 2
+stdevs shape: (24, 2)
+Stdevs: [[  1.00000000e+05   3.23999761e+00]
+ [  1.30000000e+05   3.01753594e+00]
+ [  1.70000000e+05   2.81506397e+00]
+ [  2.30000000e+05   2.62618548e+00]
+ [  3.00000000e+05   2.41520872e+00]
+ [  3.90000000e+05   2.28831880e+00]
+ [  5.10000000e+05   2.10053376e+00]
+ [  6.70000000e+05   1.97034377e+00]
+ [  8.80000000e+05   1.81820087e+00]
+ [  1.15000000e+06   1.72890942e+00]
+ [  1.50000000e+06   1.62897985e+00]
+ [  1.95000000e+06   1.59359831e+00]
+ [  2.54000000e+06   1.46672243e+00]
+ [  3.31000000e+06   1.35789169e+00]
+ [  4.31000000e+06   1.25741918e+00]
+ [  5.61000000e+06   1.08073503e+00]
+ [  7.30000000e+06   1.08478884e+00]
+ [  9.49000000e+06   9.90991392e-01]
+ [  1.23400000e+07   7.35194890e-01]
+ [  1.60500000e+07   8.68794300e-01]
+ [  2.08700000e+07   7.57432273e-01]
+ [  2.71400000e+07   6.36367007e-01]
+ [  3.52900000e+07   6.29949283e-01]
+ [  4.58800000e+07   4.62614362e-01]
+ [  5.96500000e+07   5.00899312e-01]]
+Analyzing file: ../data/LJ/m2/P0.9_T0.3_m2/thermo.dat.mcs
+
+P: 0.9  T: 0.3
+Total mean energy: -80.0364757502
+BlockSize: 100000
+numBlocks: 518
+stdevs shape: (0, 2)
+BlockSize: 130000
+numBlocks: 398
+stdevs shape: (1, 2)
+BlockSize: 170000
+numBlocks: 304
+stdevs shape: (2, 2)
+BlockSize: 230000
+numBlocks: 225
+stdevs shape: (3, 2)
+BlockSize: 300000
+numBlocks: 172
+stdevs shape: (4, 2)
+BlockSize: 390000
+numBlocks: 132
+stdevs shape: (5, 2)
+BlockSize: 510000
+numBlocks: 101
+stdevs shape: (6, 2)
+BlockSize: 670000
+numBlocks: 77
+stdevs shape: (7, 2)
+BlockSize: 880000
+numBlocks: 58
+stdevs shape: (8, 2)
+BlockSize: 1150000
+numBlocks: 45
+stdevs shape: (9, 2)
+BlockSize: 1500000
+numBlocks: 34
+stdevs shape: (10, 2)
+BlockSize: 1950000
+numBlocks: 26
+stdevs shape: (11, 2)
+BlockSize: 2540000
+numBlocks: 20
+stdevs shape: (12, 2)
+BlockSize: 3310000
+numBlocks: 15
+stdevs shape: (13, 2)
+BlockSize: 4310000
+numBlocks: 12
+stdevs shape: (14, 2)
+BlockSize: 5610000
+numBlocks: 9
+stdevs shape: (15, 2)
+BlockSize: 7300000
+numBlocks: 7
+stdevs shape: (16, 2)
+BlockSize: 9490000
+numBlocks: 5
+stdevs shape: (17, 2)
+BlockSize: 12340000
+numBlocks: 4
+stdevs shape: (18, 2)
+BlockSize: 16050000
+numBlocks: 3
+stdevs shape: (19, 2)
+BlockSize: 20870000
+numBlocks: 2
+stdevs shape: (20, 2)
+Stdevs: [[  1.00000000e+05   4.67750125e+00]
+ [  1.30000000e+05   4.27231087e+00]
+ [  1.70000000e+05   3.95383494e+00]
+ [  2.30000000e+05   3.47493124e+00]
+ [  3.00000000e+05   3.36155266e+00]
+ [  3.90000000e+05   3.08072514e+00]
+ [  5.10000000e+05   2.79529032e+00]
+ [  6.70000000e+05   2.63192999e+00]
+ [  8.80000000e+05   2.36171189e+00]
+ [  1.15000000e+06   2.15283708e+00]
+ [  1.50000000e+06   1.93993949e+00]
+ [  1.95000000e+06   1.74426505e+00]
+ [  2.54000000e+06   1.64867996e+00]
+ [  3.31000000e+06   1.40024695e+00]
+ [  4.31000000e+06   1.36278265e+00]
+ [  5.61000000e+06   1.15592575e+00]
+ [  7.30000000e+06   1.01083985e+00]
+ [  9.49000000e+06   1.13350485e+00]
+ [  1.23400000e+07   9.54133817e-01]
+ [  1.60500000e+07   8.97859005e-01]
+ [  2.08700000e+07   5.71371810e-01]]
+Analyzing file: ../data/LJ/m2/P0.3_T0.3_675895/thermo.dat
+
+P: 0.3  T: 0.3
+Total mean energy: -1542.21939193
+BlockSize: 100000
+numBlocks: 27762
+stdevs shape: (0, 2)
+BlockSize: 130000
+numBlocks: 21356
+stdevs shape: (1, 2)
+BlockSize: 170000
+numBlocks: 16331
+stdevs shape: (2, 2)
+BlockSize: 230000
+numBlocks: 12070
+stdevs shape: (3, 2)
+BlockSize: 300000
+numBlocks: 9254
+stdevs shape: (4, 2)
+BlockSize: 390000
+numBlocks: 7118
+stdevs shape: (5, 2)
+BlockSize: 510000
+numBlocks: 5443
+stdevs shape: (6, 2)
+BlockSize: 670000
+numBlocks: 4143
+stdevs shape: (7, 2)
+BlockSize: 880000
+numBlocks: 3154
+stdevs shape: (8, 2)
+BlockSize: 1150000
+numBlocks: 2414
+stdevs shape: (9, 2)
+BlockSize: 1500000
+numBlocks: 1850
+stdevs shape: (10, 2)
+BlockSize: 1950000
+numBlocks: 1423
+stdevs shape: (11, 2)
+BlockSize: 2540000
+numBlocks: 1093
+stdevs shape: (12, 2)
+BlockSize: 3310000
+numBlocks: 838
+stdevs shape: (13, 2)
+BlockSize: 4310000
+numBlocks: 644
+stdevs shape: (14, 2)
+BlockSize: 5610000
+numBlocks: 494
+stdevs shape: (15, 2)
+BlockSize: 7300000
+numBlocks: 380
+stdevs shape: (16, 2)
+BlockSize: 9490000
+numBlocks: 292
+stdevs shape: (17, 2)
+BlockSize: 12340000
+numBlocks: 224
+stdevs shape: (18, 2)
+BlockSize: 16050000
+numBlocks: 172
+stdevs shape: (19, 2)
+BlockSize: 20870000
+numBlocks: 133
+stdevs shape: (20, 2)
+BlockSize: 27140000
+numBlocks: 102
+stdevs shape: (21, 2)
+BlockSize: 35290000
+numBlocks: 78
+stdevs shape: (22, 2)
+BlockSize: 45880000
+numBlocks: 60
+stdevs shape: (23, 2)
+BlockSize: 59650000
+numBlocks: 46
+stdevs shape: (24, 2)
+BlockSize: 77550000
+numBlocks: 35
+stdevs shape: (25, 2)
+BlockSize: 100820000
+numBlocks: 27
+stdevs shape: (26, 2)
+BlockSize: 131070000
+numBlocks: 21
+stdevs shape: (27, 2)
+BlockSize: 170400000
+numBlocks: 16
+stdevs shape: (28, 2)
+BlockSize: 221520000
+numBlocks: 12
+stdevs shape: (29, 2)
+BlockSize: 287980000
+numBlocks: 9
+stdevs shape: (30, 2)
+BlockSize: 374380000
+numBlocks: 7
+stdevs shape: (31, 2)
+BlockSize: 486700000
+numBlocks: 5
+stdevs shape: (32, 2)
+BlockSize: 632710000
+numBlocks: 4
+stdevs shape: (33, 2)
+BlockSize: 822530000
+numBlocks: 3
+stdevs shape: (34, 2)
+BlockSize: 1069290000
+numBlocks: 2
+stdevs shape: (35, 2)
+Stdevs: [[  1.00000000e+05   1.17803332e+01]
+ [  1.30000000e+05   1.15037547e+01]
+ [  1.70000000e+05   1.12200871e+01]
+ [  2.30000000e+05   1.08895977e+01]
+ [  3.00000000e+05   1.05814557e+01]
+ [  3.90000000e+05   1.02772936e+01]
+ [  5.10000000e+05   9.95009515e+00]
+ [  6.70000000e+05   9.61110700e+00]
+ [  8.80000000e+05   9.23454683e+00]
+ [  1.15000000e+06   8.87216788e+00]
+ [  1.50000000e+06   8.57593933e+00]
+ [  1.95000000e+06   8.17854475e+00]
+ [  2.54000000e+06   7.77048337e+00]
+ [  3.31000000e+06   7.48200976e+00]
+ [  4.31000000e+06   7.01700360e+00]
+ [  5.61000000e+06   6.65740479e+00]
+ [  7.30000000e+06   6.35801622e+00]
+ [  9.49000000e+06   5.90656301e+00]
+ [  1.23400000e+07   5.60965071e+00]
+ [  1.60500000e+07   5.25105680e+00]
+ [  2.08700000e+07   4.64818162e+00]
+ [  2.71400000e+07   4.68330641e+00]
+ [  3.52900000e+07   4.31838256e+00]
+ [  4.58800000e+07   3.61383750e+00]
+ [  5.96500000e+07   3.34946184e+00]
+ [  7.75500000e+07   3.14193909e+00]
+ [  1.00820000e+08   3.11923934e+00]
+ [  1.31070000e+08   2.83553637e+00]
+ [  1.70400000e+08   2.52488802e+00]
+ [  2.21520000e+08   2.20864288e+00]
+ [  2.87980000e+08   1.99195656e+00]
+ [  3.74380000e+08   1.81708523e+00]
+ [  4.86700000e+08   2.08868959e+00]
+ [  6.32710000e+08   1.84109288e+00]
+ [  8.22530000e+08   4.35536092e-01]
+ [  1.06929000e+09   8.99987931e-01]]
