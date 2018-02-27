@@ -10,3 +10,4 @@ jmmOneDMC
 scripts/errors.*
 scripts/output.*
 *.o
+.gitignore
