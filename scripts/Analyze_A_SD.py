@@ -77,7 +77,7 @@ for tf in thermoFiles:
 			#print(str(thermo_data_block[:,0]))
 			#print(str(thermo_data_block[:,1]))
 		std1 = np.power(np.mean(np.power(thermo_data_block[:,1],2)) - np.power(np.mean(thermo_data_block[:,1]),2),0.5)
-		std2 = np.std(thermo_data_block[:,1])
+		std2 = np.std(thermo_data_block[:,3])
 		#print("Energy StDev: " + str(std1) + '  ' + str(std2))
 		print('stdevs shape: ' + str(stdevs.shape))
 		tmp = [[blockSize,std2]]
@@ -91,7 +91,8 @@ for tf in thermoFiles:
 	fig.set_dpi(200)
 	plt.xlabel(r'Block Size',fontsize=18)
 	plt.ylabel(r'StdDev(E)',fontsize=18)
-	plt.xlim((0,1E8))
+	#plt.xlim((0,5E6))
+	plt.title('P: ' + str(P) + ' T: ' + str(T),fontsize=16)
 	#fig = plt.gcf()
 	#fig.set_dpi(200)
 	#plt.scatter(thermo_data_block[:,0],thermo_data_block[:,1],linewidth=0.8)
