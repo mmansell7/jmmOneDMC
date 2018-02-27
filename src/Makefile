@@ -9,7 +9,7 @@ default:
 	@echo "No target specified."
 
 clean:
-	rm -f *.o ${EXE} g*.dat rho.dat out.out config.dat thermo.dat
+	rm -f *.o ${EXE} g*.dat.* rho.dat.* out.out config.dat.* thermo.dat.*
 
 henrun: henry2
 	./${EXE} 2000 0.5 0.5 5 2000 lj 0.05 5 100 10 0.01 100000 100 100 5 0.01 100000 100 125 > out.out
