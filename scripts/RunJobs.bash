@@ -1,14 +1,15 @@
 #!/bin/bash
 
-echo Hello World!
-curDir=`pwd`
-echo ${curDir}
 pot=LJ
 m=2
 Temperatures=( 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 )
 Pressures=( 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 )
+
+
+
 #Temperatures=( 0.1 0.2 0.3 0.4 0.5)
 #Pressures=( 0.1 )
+curDir=`pwd`
 for P in "${Pressures[@]}"
 do
    for T in "${Temperatures[@]}"
@@ -19,13 +20,13 @@ do
          echo Directory exists.  Skipping.
       else
          echo Directory does not exist.  Preparing this case.
-newDir=../data/${pot}/m${m}/P${P}_T${T}_m${m}
-echo Making directory ${newDir}
-mkdir -p ${newDir}
+         newDir=../data/${pot}/m${m}/P${P}_T${T}_m${m}
+         echo Making directory ${newDir}
+         mkdir -p ${newDir}
+         echo Making input file ${inFile}
+         inFile=${newDir}/INPUT
 
 
-inFile=${newDir}/INPUT
-echo Making input file ${inFile}
 cat >${inFile} << EOL
 N          2000
 P          ${P}
@@ -52,8 +53,10 @@ VADJ       100000
 EOL
 
 
-jobFile=${newDir}/job.csh
-echo Making job script file ${jobFile}
+         echo Making job script file ${jobFile}
+         jobFile=${newDir}/job.csh
+
+
 cat >${jobFile} << EOL
 #! /bin/csh
 #BSUB -W 80:00
@@ -83,10 +86,10 @@ echo ...Simulation completed I think
 EOL
 
 
-echo Submitting job.
-cd ${newDir}
-bsub < job.csh
-cd ${curDir}
+         echo Submitting job.
+         cd ${newDir}
+         bsub < job.csh
+         cd ${curDir}
 
       fi
    done

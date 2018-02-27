@@ -1322,6 +1322,7 @@ int isECheck(struct MCState *mcs) {
 // Check if this is a step at which maximum trial displacement should be
 //  updated.
 int isMaxDisAdjust(struct MCState *mcs) {
+  
   if ( mcs->sn % mcs->mdai == 0 ) {
     return 1;
   }
@@ -1334,8 +1335,8 @@ int isMaxDisAdjust(struct MCState *mcs) {
 // Check if this is a step at which maximum trial volume change should be
 //  updated.
 int isMaxDVAdjust(struct MCState *mcs) {
-
-  if ( mcs->sn % mcs->mvai == 0 ) {
+  
+  if (mcs->sn % mcs->mvai == 0 ) {
     return 1;
   }
   else {
@@ -1452,17 +1453,13 @@ int ECheck(struct MCState *mcs) {
 // Adjust maximum trial displacement
 //   The algorithm is from Swendsen, Physics Procedia 15.
 int maxDisAdjust(struct MCState *mcs) {
-  static unsigned long int dAErrNtot = 0;
   static double idealRatio = 0.5;
   double actualRatio;
   
-  if ( (mcs->dAcc[0] + mcs->dAcc[1] - dAErrNtot) != 0 && (mcs->dAcc[0] + mcs->dAcc[1]) % mcs->mdai == 0 ) {
-    dAErrNtot = mcs->dAcc[0] + mcs->dAcc[1];
-    actualRatio = (double) mcs->dAcc[0] / (mcs->dAcc[0] + mcs->dAcc[1]);
-    mcs->maxStep = mcs->maxStep*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
-    printf("Step: %lu  Updating max Step...dAcc: %lu,%lu   new maxStep: %.5G\n",mcs->sn,mcs->dAcc[0],mcs->dAcc[1],mcs->maxStep);
-  }
-    
+  actualRatio = (double) mcs->dAcc[0] / (mcs->dAcc[0] + mcs->dAcc[1]);
+  mcs->maxStep = mcs->maxStep*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
+  printf("Step: %lu  Updating max Step...dAcc: %lu,%lu   new maxStep: %.5G\n",mcs->sn,mcs->dAcc[0],mcs->dAcc[1],mcs->maxStep);
+  
   return 0;
 }
 
@@ -1474,7 +1471,7 @@ int maxDVAdjust(struct MCState *mcs) {
   static double idealRatio = 0.5;
   double actualRatio;
   
-  if ( (mcs->vAcc[0] + mcs->vAcc[1] - vAErrNtot) != 0 && (mcs->vAcc[0] + mcs->vAcc[1]) % mcs->mvai == 0 ) {
+  if ( (mcs->vAcc[0] + mcs->vAcc[1] - vAErrNtot) > 0 ) {
     vAErrNtot = mcs->vAcc[0] + mcs->vAcc[1];
     actualRatio = (double) mcs->vAcc[0] / (mcs->vAcc[0] + mcs->vAcc[1]);
     mcs->maxdl = mcs->maxdl*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
