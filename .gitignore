@@ -1,3 +1,4 @@
+.gitignore
 bin/
 data/
 *.dat
@@ -10,4 +11,9 @@ jmmOneDMC
 scripts/errors.*
 scripts/output.*
 *.o
-.gitignore
+scripts/*.png
+src/INPUT
+src/rho.dat.*
+src/g*.dat.*
+src/config.dat.*
+src/thermo.dat.*
