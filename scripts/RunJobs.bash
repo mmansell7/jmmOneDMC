@@ -31,6 +31,7 @@ cat >${inFile} << EOL
 N          2000
 P          ${P}
 T          ${T}
+RELAX
 NUMSTEPS   5000000000
 POT        ${pot}
 NBN        ${m}

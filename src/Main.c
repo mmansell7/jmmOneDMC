@@ -67,6 +67,11 @@ int main (int argc, char *argv[]) {
     double ddd = 0.5;
     fad(mcs,&nnn,&ddd);
     
+    // Volume is relaxed, if this was requested in the input file.
+    if ( getRelaxFlag(mcs) > 0 ) {
+        relaxVolume(mcs);
+    }
+    
     // The following "sections" are each executed by a single thread, in 
     //  parallel with the other sections.
     #pragma omp sections
@@ -163,6 +168,12 @@ int main (int argc, char *argv[]) {
             printG(mcs);
         }
         
+        // Volume is relaxed, if this was requested in the input file.
+        if ( (getStepNum(mcs) % 10000 == 0) && (getStepNum(mcs) < 1E6) && \
+               (getRelaxFlag(mcs) > 0) ) {
+            relaxVolume(mcs);
+        }
+    
         fflush(stdout);
         
     }     //  ############################### END MC LOOP #######################################

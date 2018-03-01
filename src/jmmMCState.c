@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <gsl/gsl_rng.h>
 #include <string.h>
@@ -11,6 +12,8 @@
 //  cannot be used for this purpose.
 static double mcsETest,mcsETrial,mcsE6Trial,mcsE12Trial,mcsVirTrial,mcsVir6Trial,mcsVir12Trial;
 static double mcsdE6,mcsdE12,mcsdE,mcsdVir6,mcsdVir12,mcsdVir,ran;
+static int resultFlag;
+static double EUp,EDown,h,dlEstimate,lTryMin,lTryMax,b;
 static double *rijTest,*eijTest,*e6ijTest,*e12ijTest;
 static long int gs11,gs12;
 static double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
@@ -31,6 +34,7 @@ struct MCState {
                                    //   interact.  -1 for no limit.
   unsigned long int sn;            // Step number
   unsigned long int numSteps;      // Number of steps (total steps requested)
+  int relaxFlag;                   // 0: do not relax before run.  1: do relax
   unsigned long int cpi;           // Configuration print interval
   unsigned long int tpi;           // Thermo print interval
   unsigned long int eci;           // Energy check interval
@@ -203,6 +207,7 @@ struct MCState * setupMCS(struct MCInput inp) {
 	mcs->T          = inp.T;
 	mcs->nbn        = (unsigned int) inp.nbn;
         mcs->numSteps   = inp.ns;
+        mcs->relaxFlag  = inp.relaxFlag;
         mcs->cpi        = inp.cpi;
         mcs->tpi        = inp.tpi;
         mcs->eci        = inp.eci;
@@ -1393,15 +1398,14 @@ int updateThermo(struct MCState *mcs) {
 
 // Double-check the system energy
 int ECheck(struct MCState *mcs) {
-  int resultFlag;
-  unsigned long int iq,ii,jj;
+  unsigned long int iq,ind,ii,jj;
   double rij1,rij3,rij6,rij12;
   double *phiij,params[2];
   params[0] = 0;
   
   #pragma omp barrier 
   mcsETest = 0;
-  #pragma omp for private(iq,ii,jj,rij1,rij3,rij6,rij12) reduction(+:mcsETest)
+  #pragma omp for private(iq,ii,jj,rij1,rij3,rij6,rij12,phiij) reduction(+:mcsETest)
   for (iq = 0; iq < mcs->numPairs; iq++) {
     ii = mcs->iii[iq];
     jj = mcs->jjj[iq];
@@ -1422,30 +1426,90 @@ int ECheck(struct MCState *mcs) {
       mcsETest += eijTest[iq];
     }
   }
+  
   //printf("Final mcsETest: %.5G\n",mcsETest);
   #pragma omp single
   {
-  if (fabs(mcsETest - mcs->E) > 0.000001) {
+  if (fabs(mcsETest - mcs->E) > 0.0001) {
     resultFlag = 1;
     fprintf(stdout,"\n### !!! $$$ Energy discrepancy!!! ######### !!!!!!!!!!! $$$$$"
-         "$$$$$ !!!!!!!!\nWhile attempting to move particle: %lu by %.5G\nE = %.8G, ETest = %.8G, Resetting energy "
+         "$$$$$ !!!!!!!!\nWhile attempting to move particle: %lu by %.5G\nE = %.8G, ETest = %.8G, Resetting results "
          "to that of full calculation (E = %.8G)\n\n",mcs->nm,mcs->md,mcs->E,mcsETest,mcsETest);
-    
+
+    params[0] = 1;
+    params[1] = mcs->l;
     mcs->E = mcsETest;
-    for (iq = 0; iq < mcs->numPairs; iq++) {
-        if ( fabs(eijTest[iq] - mcs->eij[iq]) > 0.0000001 ) { 
-            ii = mcs->iii[iq];
-            jj = mcs->jjj[iq];
-            printf("r[%lu]: %.5G  r[%lu]: %.5G  rij[%lu][%lu]: %.5G  rijTest[%lu][%lu]: %.5G  eijTest[%lu][%lu] %.5G   eij[%lu][%lu] = %.5G  mcsETest %.5G\n",
-                    ii,mcs->r[ii],jj,mcs->r[jj],ii,jj,mcs->rij[iq],ii,jj,rijTest[iq],ii,jj,eijTest[iq],ii,jj,mcs->eij[iq],mcsETest);
-        }
+    mcsETrial     = 0;
+    mcsE12Trial   = 0;
+    mcsE6Trial    = 0;
+    mcsVirTrial   = 0;
+    mcsVir12Trial = 0;
+    mcsVir6Trial  = 0;
+  }
+  }
+
+  if (resultFlag == 1) {
+  #pragma omp single
+  {
+  printf("Looking for particles contributing to the discrepancy.\n");
+  }
+
+  #pragma omp for private(ii,jj,ind,rij1,phiij) \
+      reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
+  for (ind = 0; ind < mcs->numPairs; ind++) {
+    ii            = mcs->iii[ind];
+    jj            = mcs->jjj[ind];
+
+    if ( mcs->nbn >= 0 && (unsigned int) jj-ii > mcs->nbn) {
+      mcs->eij[ind]        = 0;
+      mcs->e12ij[ind]      = 0;
+      mcs->e6ij[ind]       = 0;
+      mcs->virij[ind]      = 0;
+      mcs->vir12ij[ind]    = 0;
+      mcs->vir6ij[ind]     = 0;
+    }
+    else {
+      mcs->rij[ind]          = mcs->r[jj] - mcs->r[ii];
+			
+      phiij                   = mcs->phi(&(mcs->rij[ind]),params);
+      mcs->eij[ind]      = phiij[0];
+      mcs->e12ij[ind]    = phiij[2];
+      mcs->e6ij[ind]     = phiij[4];
+      mcs->virij[ind]    = phiij[1];
+      mcs->vir12ij[ind]  = phiij[3];
+      mcs->vir6ij[ind]   = phiij[5];
+
+      mcsETrial            += mcs->eij[ind];
+      mcsE12Trial            += mcs->e12ij[ind];
+      mcsE6Trial            += mcs->e6ij[ind];
+      mcsVirTrial          += mcs->virij[ind];
+      mcsVir12Trial          += mcs->vir12ij[ind];
+      mcsVir6Trial          += mcs->vir6ij[ind];
+    }
+    
+    if ( fabs( mcs->eij[ind] - eijTest[ind] ) > 0.00001 ) {
+      printf("r[%lu]: %.5G  r[%lu]: %.5G  rij[%lu][%lu]: %.5G  rijTest[%lu][%lu]: %.5G  eijTest[%lu][%lu] %.5G   eij[%lu][%lu] = %.5G\n",ii,mcs->r[ii],jj,mcs->r[jj],ii,jj,mcs->rij[ind],ii,jj,rijTest[ind],ii,jj,eijTest[ind],ii,jj,mcs->eij[ind]);
     }
   }
+  #pragma omp single
+  {
+  mcs->E             = mcsETrial;
+  mcs->E12           = mcsE12Trial;
+  mcs->E6            = mcsE6Trial;
+  mcs->Vir           = mcsVirTrial;
+  mcs->Vir12         = mcsVir12Trial;
+  mcs->Vir6          = mcsVir6Trial;
+  }
+  }
+  
   else {
+    #pragma omp single
+    {
     resultFlag = 0;
     fprintf(stdout,"####### Energy was just verified ########  E = %.8G ######## ETest = %.8G #######\n",mcs->E,mcsETest);
+    }
   }
-  }
+  
   return resultFlag;
 }
 
@@ -1703,10 +1767,512 @@ int qagrho(struct MCState *mcs) {
   return 0;
 }
 
+int getRelaxFlag(struct MCState *mcs) {
+    return mcs->relaxFlag;
+}
+
+// Relax volume to the minimum energy point, when considering the external
+//   pressure.
+int relaxVolume(struct MCState *mcs) {
+//int fav(struct MCState *mcs) {
+    unsigned long int ii,jj,ind;
+    double rij1a,rij3a,rij6a,rij7a,rij12a,rij13a;
+    double *phiij;
+    int count,maxTries;
+    
+    maxTries = 20;
+    lTryMin = 0;
+    lTryMax = 1E10;
+    b = 1000;
+
+    
+    #pragma omp single
+    {
+    printf("Relaxing the Volume...Starting Length,Energy: %.5G,%.5G\n",mcs->l,mcs->E);
+    }
+
+for ( count = 0; count < 20; count++ ) {
+    // 1. Increase volume 2% (move particles to match)
+    #pragma omp single
+    {
+    printf("Relaxation step %d...",count);
+    //h = 0.02*mcs->l;
+    h = 0.1;
+    mcs->dl = h;
+    }
+    EUp = calculateEnergyOfTrialVolumeChange(mcs,mcs->dl);
+   
+    /*
+    #pragma omp single
+    {
+    printf("Relaxation step %d...\n",count);
+    //h = 0.02*mcs->l;
+    h = 5;
+    mcs->dl = h;
+    
+    params[0] = 0;
+    
+    lRat1 = (mcs->l + mcs->dl) / mcs->l;
+    for (ind = 0; ind < mcs->N; ind++) {
+        mcs->rTrial[ind] = mcs->r[ind]*lRat1;
+    }
+    
+    mcsETrial     = 0;
+    mcsE12Trial   = 0;
+    mcsE6Trial    = 0;
+    }
+
+
+    // 2. Calculate "trial" energy
+    #pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) \
+         reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
+    for (ind = 0; ind < mcs->numPairs; ind++) {
+        ii            = mcs->iii[ind];
+        jj            = mcs->jjj[ind];
+
+        if ( mcs->nbn >= 0 && (unsigned int) jj-ii > mcs->nbn) {
+            mcs->eijTrial[ind]        = 0;
+            mcs->e12ijTrial[ind]      = 0;
+            mcs->e6ijTrial[ind]       = 0;
+        }
+        else {
+            rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
+            
+            phiij                   = mcs->phi(&rij1a,params);
+            mcs->eijTrial[ind]      = phiij[0];
+            mcs->e12ijTrial[ind]    = phiij[2];
+            mcs->e6ijTrial[ind]     = phiij[4];
+            
+            mcsETrial               += mcs->eijTrial[ind];
+            mcsE12Trial             += mcs->e12ijTrial[ind];
+            mcsE6Trial              += mcs->e6ijTrial[ind];
+        }
+    }
+
+    #pragma omp single
+    {
+    mcs->ETrial             = mcsETrial;
+    mcs->E12Trial           = mcsE12Trial;
+    mcs->E6Trial            = mcsE6Trial;
+    EUp                     = mcs->ETrial;
+    }
+    */
+
+
+// 3. Decrease volume 2% from original (move particles to match)
+    #pragma omp single
+    {
+        //mcs->bndchk = 0;
+        mcs->dl = -h;
+    }
+    EDown = calculateEnergyOfTrialVolumeChange(mcs,mcs->dl);
+
+    /*    
+    #pragma omp single
+    {
+        //mcs->bndchk = 0;
+        mcs->dl = -h;
+        
+        params[0] = 0;
+        
+        lRat1 = (mcs->l + mcs->dl) / mcs->l;
+        for (ind = 0; ind < mcs->N; ind++) {
+            mcs->rTrial[ind] = mcs->r[ind]*lRat1;
+        }
+
+        mcsETrial     = 0;
+        mcsE12Trial   = 0;
+        mcsE6Trial    = 0;
+        
+    }
+
+// 4. Calculate "trial" energy
+	#pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) \
+             reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
+	for (ind = 0; ind < mcs->numPairs; ind++) {
+		ii            = mcs->iii[ind];
+		jj            = mcs->jjj[ind];
+
+		if ( mcs->nbn >= 0 && (unsigned int) jj-ii > mcs->nbn) {
+			mcs->eijTrial[ind]        = 0;
+			mcs->e12ijTrial[ind]      = 0;
+			mcs->e6ijTrial[ind]       = 0;
+		}
+		else {
+			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
+			
+			phiij                   = mcs->phi(&rij1a,params);
+			mcs->eijTrial[ind]      = phiij[0];
+			mcs->e12ijTrial[ind]    = phiij[2];
+			mcs->e6ijTrial[ind]     = phiij[4];
+	
+			mcsETrial               += mcs->eijTrial[ind];
+			mcsE12Trial             += mcs->e12ijTrial[ind];
+			mcsE6Trial              += mcs->e6ijTrial[ind];
+		}
+	}
+
+        #pragma omp single
+        {
+	mcs->ETrial             = mcsETrial;
+	mcs->E12Trial           = mcsE12Trial;
+	mcs->E6Trial            = mcsE6Trial;
+	EDown                   = mcs->ETrial;
+        */
+
+
+// 5. From second-order finite difference, estimate the volume at which
+//      -dE/dL = P
+        #pragma omp single
+        {
+        double first,second;
+        first  = (EUp - EDown) / (2*h);
+        second = (EUp - 2.0*mcs->E + EDown) / (h*h);
+        dlEstimate = -( mcs->P - ( (double) mcs->N/mcs->l)*mcs->T  + first) / second;
+	//printf("EUp,E,EDown,first,second,dlEstimate = %.5G,%.5G,%.5G,%.5G,%.5G,%.5G\n", \
+        //          EUp,mcs->E,EDown,first,second,dlEstimate);
+        if ( dlEstimate > 0 ) {
+            lTryMin = mcs->l;
+        }
+        else {
+            lTryMax = mcs->l;
+        }
+        
+        if ( mcs->l + dlEstimate > lTryMax ) {
+            dlEstimate = 0.5*(lTryMax - mcs->l);
+        }
+        else if ( mcs->l + dlEstimate < lTryMin) {
+            dlEstimate = 0.5*(lTryMin - mcs->l);
+        }
+        
+        if ( fabs(dlEstimate) > 200 ) {
+            if ( dlEstimate < 0 ) {
+                dlEstimate = -200;
+            }
+            else {
+                dlEstimate = 200;
+            }
+        }
+        }
+// 6. If the current volume is within 5 of the estimated "minimum energy"
+//      volume, move and exit the loop.  Otherwise, move and go back to
+//      1.
+        
+        if ( fabs(dlEstimate) < 5 ) {
+            moveVolume(mcs,mcs->l + dlEstimate);
+            
+            #pragma omp single
+            {
+	    printf("Relaxation converged. Length,energy: %.10G,%.10G\n",mcs->l,mcs->E);
+            }
+            return 0;
+        }
+	else {
+            moveVolume(mcs,mcs->l + dlEstimate);
+            
+            #pragma omp single
+            {
+            printf("length,energy: %.5g,%.5G\n",mcs->l,mcs->E);
+            }
+      /*
+   #pragma omp single
+            {
+         
+            lRat1 = (mcs->l + dlEstimate) / mcs->l;
+            mcs->l = mcs->l + dlEstimate;
+            printf("Adjusting length to %.5G...",mcs->l);
+            fflush(stdout);
+            for (ind = 0; ind < mcs->N; ind++) {
+                mcs->r[ind] = mcs->r[ind]*lRat1;
+            }
+            
+            params[0] = 1;
+            params[1] = mcs->l;
+            
+            mcsETrial     = 0;
+            mcsE12Trial   = 0;
+            mcsE6Trial    = 0;
+            mcsVirTrial   = 0;
+            mcsVir12Trial = 0;
+            mcsVir6Trial  = 0;
+            }
+
+	    #pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) \
+                reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
+            for (ind = 0; ind < mcs->numPairs; ind++) {
+		ii            = mcs->iii[ind];
+		jj            = mcs->jjj[ind];
+
+		if ( mcs->nbn >= 0 && (unsigned int) jj-ii > mcs->nbn) {
+			mcs->eij[ind]        = 0;
+			mcs->e12ij[ind]      = 0;
+			mcs->e6ij[ind]       = 0;
+			mcs->virij[ind]      = 0;
+			mcs->vir12ij[ind]    = 0;
+			mcs->vir6ij[ind]     = 0;
+		}
+		else {
+			mcs->rij[ind]      = mcs->r[jj] - mcs->r[ii];
+			
+			phiij              = mcs->phi(&(mcs->rij[ind]),params);
+			mcs->eij[ind]      = phiij[0];
+			mcs->e12ij[ind]    = phiij[2];
+			mcs->e6ij[ind]     = phiij[4];
+			mcs->virij[ind]    = phiij[1];
+			mcs->vir12ij[ind]  = phiij[3];
+			mcs->vir6ij[ind]   = phiij[5];
+	
+			mcsETrial          += mcs->eij[ind];
+			mcsE12Trial        += mcs->e12ij[ind];
+			mcsE6Trial         += mcs->e6ij[ind];
+			mcsVirTrial        += mcs->virij[ind];
+			mcsVir12Trial      += mcs->vir12ij[ind];
+			mcsVir6Trial       += mcs->vir6ij[ind];
+		}
+            }
+            
+            #pragma omp single
+            {
+            mcs->E           = mcsETrial;
+            printf("Current Energy: %.3G\n",mcs->E);
+            mcs->E12         = mcsE12Trial;
+            mcs->E6          = mcsE6Trial;
+            mcs->Vir         = mcsVirTrial;
+            mcs->Vir12       = mcsVir12Trial;
+            mcs->Vir6        = mcsVir6Trial;
+	    }
+        */    
+        }
+}
+
+    #pragma omp single
+    {
+    printf("WARNING: Relaxation failed to converge after 20 steps. Length,energy: "
+              "%.5G,%.5G\n",mcs->l,mcs->E);
+    }
+    
+    return 1;
+    #pragma omp barrier
+
+
+    
+/*
+// BISECTION METHOD
+    
+
+// Try increasing L
+#pragma omp single
+    {
+    l1 = mcs->l;
+    E11 = mcs->E;
+    E12 = calculateEnergyOfTrialVolumeChange(mcs,h);
+    dE1 = (E22-E21)/h;
+    
+    l3 = l1 + b;
+    E31 = calculateEnergyOfTrialVolumeChange(mcs,b);
+    E32 = calculateEnergyOfTrialVolumeChange(mcs,b+h);
+    dE3 = (E32-E31)/h;
+    
+    for ( count = 0; count < maxTries; count++) {
+        if ( dE2 < -mcs->P ) {
+            l3 = l2 + b;
+            E31 = calculateEnergyOfTrialVolumeChange(mcs,b);
+            E32 = calculateEnergyOfTrialVolumeChange(mcs,b+h);
+            dE3 = (E32-E31)/h;
+            if ( dE3 > -mcs->P ) {
+                l1 = l2;
+                dE1 = dE2;
+
+                b = 0.5*b;
+
+                l2 = l1+b;
+                moveVolume(mcs,b);
+                E21 = mcs->E;
+                E22 = calculateEnergyOfTrialVolumeChange(mcs,h);
+                dE2 = (E22-E21)/h;
+            }
+            else {
+                l2 = l2+b;
+                moveVolume(mcs,b);
+                E21 = mcs->E;
+                E22 = calculateEnergyOfTrialVolumeChange(mcs,h);
+                dE2 = (E22-E21)/h;
+            }
+        }
+
+
+        d2E = (dEAbove - dEHere)/b;
+        else if ( d2E > 0 )
 
 
 
+        EDown1 = calculateEnergyofTrialVolumeChange(mcs,-b);
+        EDown2 = calculateEnergyofTrialVolumeChange(mcs,-b+h);
+        dEDown = (EDown2-EDown1)/h;
 
+// 4. Calculate "trial" energy
+	#pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) \
+             reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
+	for (ind = 0; ind < mcs->numPairs; ind++) {
+		ii            = mcs->iii[ind];
+		jj            = mcs->jjj[ind];
+
+		if ( mcs->nbn >= 0 && (unsigned int) jj-ii > mcs->nbn) {
+			mcs->eijTrial[ind]        = 0;
+			mcs->e12ijTrial[ind]      = 0;
+			mcs->e6ijTrial[ind]       = 0;
+		}
+		else {
+			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
+			
+			phiij                   = mcs->phi(&rij1a,params);
+			mcs->eijTrial[ind]      = phiij[0];
+			mcs->e12ijTrial[ind]    = phiij[2];
+			mcs->e6ijTrial[ind]     = phiij[4];
+	
+			mcsETrial               += mcs->eijTrial[ind];
+			mcsE12Trial             += mcs->e12ijTrial[ind];
+			mcsE6Trial              += mcs->e6ijTrial[ind];
+		}
+	}
+
+        #pragma omp single
+        {
+	mcs->ETrial             = mcsETrial;
+	mcs->E12Trial           = mcsE12Trial;
+	mcs->E6Trial            = mcsE6Trial;
+	EUp                     = mcs->ETrial;
+        }
+
+        if ( mcs->E 
+*/
+
+}
+    
+
+unsigned long int getStepNum(struct MCState *mcs) {
+    return mcs->sn;
+}
+
+
+
+double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl) {
+        unsigned long int ind,ii,jj;
+        double rij1a;
+        double *phiij;
+        #pragma omp single
+        {
+        params[0] = 0;
+        
+        lRat1 = (mcs->l + dl) / mcs->l;
+        for (ind = 0; ind < mcs->N; ind++) {
+            mcs->rTrial[ind] = mcs->r[ind]*lRat1;
+        }
+
+        mcsETrial     = 0;
+        mcsE12Trial   = 0;
+        mcsE6Trial    = 0;
+        }
+
+	#pragma omp for private(ii,jj,ind,rij1a) \
+             reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
+	for (ind = 0; ind < mcs->numPairs; ind++) {
+		ii            = mcs->iii[ind];
+		jj            = mcs->jjj[ind];
+
+		if ( mcs->nbn >= 0 && (unsigned int) jj-ii > mcs->nbn) {
+			mcs->eijTrial[ind]        = 0;
+			mcs->e12ijTrial[ind]      = 0;
+			mcs->e6ijTrial[ind]       = 0;
+		}
+		else {
+			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
+			
+			phiij                   = mcs->phi(&rij1a,params);
+			mcs->eijTrial[ind]      = phiij[0];
+			mcs->e12ijTrial[ind]    = phiij[2];
+			mcs->e6ijTrial[ind]     = phiij[4];
+	
+			mcsETrial               += mcs->eijTrial[ind];
+			mcsE12Trial             += mcs->e12ijTrial[ind];
+			mcsE6Trial              += mcs->e6ijTrial[ind];
+		}
+	}
+
+        return mcsETrial;
+}
+    
+
+
+int moveVolume(struct MCState *mcs,double l) {
+        unsigned long int ind,ii,jj;
+        double rij1a;
+        double *phiij;
+
+	#pragma omp single
+	{
+	mcsETrial = 0;
+	mcsVirTrial = 0;
+	
+	params[0] = 1;
+	params[1] = l;
+	
+	lRat1 = params[1] / mcs->l;
+	for (ind = 0; ind < mcs->N; ind++) {
+		mcs->r[ind] = mcs->r[ind]*lRat1;
+	}
+
+        mcs->l        = l;
+	mcsETrial     = 0;
+	mcsE12Trial   = 0;
+	mcsE6Trial    = 0;
+	mcsVirTrial   = 0;
+	mcsVir12Trial = 0;
+	mcsVir6Trial  = 0;
+	}
+	
+	#pragma omp for private(ii,jj,ind,rij1a) \
+             reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial)
+	for (ind = 0; ind < mcs->numPairs; ind++) {
+		ii            = mcs->iii[ind];
+		jj            = mcs->jjj[ind];
+
+		if ( mcs->nbn >= 0 && (unsigned int) jj-ii > mcs->nbn) {
+			mcs->eij[ind]        = 0;
+			mcs->e12ij[ind]      = 0;
+			mcs->e6ij[ind]       = 0;
+			mcs->virij[ind]      = 0;
+			mcs->vir12ij[ind]    = 0;
+			mcs->vir6ij[ind]     = 0;
+		}
+		else {
+			mcs->rij[ind]        = mcs->r[jj] - mcs->r[ii];
+			
+			phiij                = mcs->phi(&(mcs->rij[ind]),params);
+			mcs->eij[ind]      = phiij[0];
+			mcs->e12ij[ind]    = phiij[2];
+			mcs->e6ij[ind]     = phiij[4];
+			mcs->virij[ind]    = phiij[1];
+			mcs->vir12ij[ind]  = phiij[3];
+			mcs->vir6ij[ind]   = phiij[5];
+	
+			mcsETrial            += mcs->eij[ind];
+			mcsE12Trial            += mcs->e12ij[ind];
+			mcsE6Trial            += mcs->e6ij[ind];
+			mcsVirTrial          += mcs->virij[ind];
+			mcsVir12Trial          += mcs->vir12ij[ind];
+			mcsVir6Trial          += mcs->vir6ij[ind];
+		}
+	}
+	mcs->E             = mcsETrial;
+	mcs->E12           = mcsE12Trial;
+	mcs->E6            = mcsE6Trial;
+	mcs->Vir           = mcsVirTrial;
+	mcs->Vir12         = mcsVir12Trial;
+	mcs->Vir6          = mcsVir6Trial;
+
+        return mcs->l;
+}
 
 
 

@@ -240,6 +240,14 @@ struct MCInput readInput(char *fstr) {
             }
         }
         
+        else if ( strncmp(token,"RELAX",10) == 0 ) {
+             inp.relaxFlag = 1;
+             token = strtok(NULL,s);
+             while( token != NULL ) {
+                 token = strtok(NULL,s);
+             }
+        }
+        
         else {
             printf("Property command %s not understood.\n",token);
         }
@@ -280,6 +288,7 @@ int printInput(struct MCInput inp) {
     printf("GSW = %.5G\n",inp.gsw);
     printf("GNS = %d\n",inp.gns);
     printf("SEED = %lu\n",inp.seed);
+    printf("RELAXATION FLAG = %d\n",inp.relaxFlag);
 
     return 0;
 }

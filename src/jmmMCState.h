@@ -31,6 +31,11 @@ int updateThermo(struct MCState *mcs);
 int ECheck(struct MCState *mcs);
 int MaxDisAdjust(struct MCState *mcs);
 int MaxDVAdjust(struct MCState *mcs);
+int relaxVolume(struct MCState *mcs);
+unsigned long int getStepNum(struct MCState *mcs);
+double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl);
+int moveVolume(struct MCState *mcs,double l);
+
 
 struct MCInput {
   
@@ -38,6 +43,7 @@ struct MCInput {
   double P;
   double T;
   unsigned long int ns;
+  int relaxFlag;
   unsigned long int cpi;
   unsigned long int tpi;
   unsigned long int eci;
