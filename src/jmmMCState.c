@@ -1522,6 +1522,12 @@ int maxDisAdjust(struct MCState *mcs) {
   
   actualRatio = (double) mcs->dAcc[0] / (mcs->dAcc[0] + mcs->dAcc[1]);
   mcs->maxStep = mcs->maxStep*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
+  if ( mcs->maxStep < 0.002 ) {
+    mcs->maxStep = 0.002;
+  }
+  else if ( mcs->maxStep > 0.5) {
+    mcs->maxStep = 0.5;
+  }
   printf("Step: %lu  Updating max Step...dAcc: %lu,%lu   new maxStep: %.5G\n",mcs->sn,mcs->dAcc[0],mcs->dAcc[1],mcs->maxStep);
   
   return 0;
@@ -1539,6 +1545,12 @@ int maxDVAdjust(struct MCState *mcs) {
     vAErrNtot = mcs->vAcc[0] + mcs->vAcc[1];
     actualRatio = (double) mcs->vAcc[0] / (mcs->vAcc[0] + mcs->vAcc[1]);
     mcs->maxdl = mcs->maxdl*log(0.672924*idealRatio + 0.0644284)/log(0.672924*(actualRatio + 0.0644284));
+    if ( mcs->maxdl < 0.002*mcs->N) {
+      mcs->maxdl = 0.002*mcs->N;
+    }
+    else if ( mcs->maxdl > 0.10*mcs->N) {
+      mcs->maxdl = 0.50*mcs->N;
+    }
     printf("Step: %lu  Updating max vol.ch....vAcc: %lu,%lu   new maxStep: %.5G\n",mcs->sn,mcs->vAcc[0],mcs->vAcc[1],mcs->maxdl);
   }
   
