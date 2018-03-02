@@ -23,20 +23,29 @@ thermoFiles = glob.glob(dir + "*/*thermo*")
 print("Found files: " + str(thermoFiles) + "\n")
 kk = 0
 
+eqStepsFile = glob.glob(dir + "EqSteps.dat")[0]
+print("Found equilibrium steps file: " + str(eqStepsFile))
+eqData = np.genfromtxt(eqStepsFile)
+#print("eqData: " + str(eqData))
+
+
 ### Use the following line to analyze a subset of the available thermo files ###
-thermoFiles = thermoFiles[0:7]
+#thermoFiles = thermoFiles[0:1]
 ################################################################################
 
 for tf in thermoFiles:
 	kk = kk + 1
 	print("Analyzing file: " + tf + "\n")
-	T = re.search('T(.*)_',tf).group(1)
-	P = re.search('P(.*)_T',tf).group(1)
+	T = np.float(re.search('T(.*)_',tf).group(1))
+	P = np.float(re.search('P(.*)_T',tf).group(1))
 	#jobID = re.search('T.*_([0-9]*)\/',tf).group(1)
 	#print('P: ' + str(P) + '  T: ' + str(T) + '  jobID: ' + str(jobID))
 	print('P: ' + str(P) + '  T: ' + str(T))
 	
 	thermo_data_raw = np.genfromtxt(tf,names=True)
+	condition = np.logical_and(eqData[:,0] == P,eqData[:,1] == T)
+	eqSteps = np.compress(condition,eqData,axis=0)[0,2].astype(int)
+	
 	thermo_data_raw = thermo_data_raw[eqSteps/printInterval+1:]
 	#for rawSampleNumber in range(np.size(thermo_data_raw)):
 		#print("rawSampleNumber: " + str(rawSampleNumber) + " rawSample: " + str(thermo_data_raw[rawSampleNumber]))
@@ -45,7 +54,7 @@ for tf in thermoFiles:
 	print("Total mean energy: " + str(energy_tot_mean));
 	#summaryFile.write(str(jobID) + '\t' + str(P) + '\t' + str(T) + '\t' + str(energy_tot_mean) + '\n')
 	#summaryFile.write(str(jobID) + '\t' + str(P) + '\t' + str(T) + '\n')
-	stdevs = np.empty((0,2))
+	stdevs = np.empty((0,3))
 	for rawSampleNumber in range(np.size(thermo_data_raw) - 1):
 		if(thermo_data_raw[rawSampleNumber + 1]['Step'] - thermo_data_raw[rawSampleNumber]['Step'] != printInterval):
 			print("########## ERROR: INCONSISTENT STEP SPACING IN THERMO FILE ##############\n")
@@ -76,16 +85,19 @@ for tf in thermoFiles:
 			#print(str(thermo_data_block))
 			#print(str(thermo_data_block[:,0]))
 			#print(str(thermo_data_block[:,1]))
-		std1 = np.power(np.mean(np.power(thermo_data_block[:,1],2)) - np.power(np.mean(thermo_data_block[:,1]),2),0.5)
-		std2 = np.std(thermo_data_block[:,3])
-		#print("Energy StDev: " + str(std1) + '  ' + str(std2))
+		#std1 = np.power(np.mean(np.power(thermo_data_block[:,1],2)) - np.power(np.mean(thermo_data_block[:,1]),2),0.5)
+		stdE = np.std(thermo_data_block[:,1])
+		stdL = np.std(thermo_data_block[:,3])
+		#print("Energy StDev: " + str(std1) + '  ' + str(stdE))
 		print('stdevs shape: ' + str(stdevs.shape))
-		tmp = [[blockSize,std2]]
+		#tmp = [[blockSize,stdE,stdL]]
 		#print('tmp size: ' + str(np.array(tmp).shape))
-		stdevs = np.append(stdevs,[[blockSize,std2]],axis=0)
+		stdevs = np.append(stdevs,[[blockSize,stdE,stdL]],axis=0)
 		#stdevs = np.append(stdevs,tmp,axis=0)
 		blockSize = printInterval*np.ceil(1.3*blockSize/printInterval).astype(int)
 	print('Stdevs: ' + str(stdevs))
+	
+	
 	plt.scatter(stdevs[:,0],stdevs[:,1],linewidth=0.8)
 	fig = plt.gcf()
 	fig.set_dpi(200)
@@ -112,6 +124,37 @@ for tf in thermoFiles:
 	#ax.text(0.05, 0.05, 'StdErr = ' + '{:.2f}'.format(std), transform=ax.transAxes, fontsize=10,
         #	verticalalignment='top')
 	# plt.show()
-	plt.savefig('Stdev_P' + str(P) + '_T' + str(T) + '.png',dpi='figure')
+	plt.savefig('StdevE_P' + str(P) + '_T' + str(T) + '.png',dpi='figure')
 	plt.close()
+	
+	
+	plt.scatter(stdevs[:,0],stdevs[:,2],linewidth=0.8)
+	fig = plt.gcf()
+	fig.set_dpi(200)
+	plt.xlabel(r'Block Size',fontsize=18)
+	plt.ylabel(r'StdDev(L)',fontsize=18)
+	#plt.xlim((0,5E6))
+	plt.title('P: ' + str(P) + ' T: ' + str(T),fontsize=16)
+	#fig = plt.gcf()
+	#fig.set_dpi(200)
+	#plt.scatter(thermo_data_block[:,0],thermo_data_block[:,1],linewidth=0.8)
+	#plt.title(A[jj],fontsize=18)
+	#plt.xlabel(r'Step Number',fontsize=18)
+	#plt.ylabel(r'System ',fontsize=18)
+	# plt.xticks(fontsize=18)
+	#plt.tick_params(axis='both', which='major', labelsize=18)
+	#ax = plt.gca()
+	#ax.yaxis.offsetText.set_fontsize(18)
+	#ax.xaxis.offsetText.set_fontsize(18)
+	#plt.tight_layout()
+	#ax.text(0.05, 0.17, 'Block size = ' + '{:.2E}'.format(blockSize), transform=ax.transAxes, fontsize=10,
+        #	verticalalignment='top')
+	#ax.text(0.05, 0.11, 'Mean = ' + '{:.2f}'.format(), transform=ax.transAxes, fontsize=10,
+       	#	verticalalignment='top')
+	#ax.text(0.05, 0.05, 'StdErr = ' + '{:.2f}'.format(std), transform=ax.transAxes, fontsize=10,
+        #	verticalalignment='top')
+	# plt.show()
+	plt.savefig('StdevL_P' + str(P) + '_T' + str(T) + '.png',dpi='figure')
+	plt.close()
+#summaryFile.close()
 #summaryFile.close()
