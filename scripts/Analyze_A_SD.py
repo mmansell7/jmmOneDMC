@@ -1,5 +1,39 @@
 #!/gpfs_share/santiso/SOFTWARE/miniconda2/envs/santimulators_1/bin/python
 
+################################################################
+#  Analyze_A_SD.py :
+#    Creates plots of the StDev of the mean energy and length
+#      as functions of the block size for each
+#      simulation having a subdirectory contained in a given
+#      directory (the first argument). Saves these plots in the
+#      current diretory.
+#      Uses only production steps.
+#
+#  
+#  Arguments:
+#    1. dir: the directory in which simulation subdirectories
+#             are located.
+#         
+#  Supplements:
+#    ${dir}/EqSteps.dat: this file must be used to list the
+#          number of equilibration steps to be removed from
+#          any of the data files. The format is P T EquilSteps
+#          with any whitespace separating the values.
+#
+#
+#  Workflow:
+#    A good practice is to set each line in ${dir}/EqSteps.dat
+#      to 0  0  0 and run
+#      ./Analyze_mean.py ${dir}.  Then fill in EqSteps.dat by
+#      visually assessing convergence of each simulation in
+#      the newly generated plots.  Then, run 
+#      ./Analyze_A_SD.py to get assess the appropriate block
+#      sizes.
+#
+#
+################################################################
+
+
 import glob
 import numpy as np
 import sys
@@ -13,11 +47,12 @@ printInterval = 10000
 
 
 dir = sys.argv[1]
-eqSteps = int(sys.argv[2])
+#eqSteps = int(sys.argv[2])
 
-print("eqSteps: " + str(eqSteps))
+#print("eqSteps: " + str(eqSteps))
 print("printInterval: " + str(printInterval))
-print("Analyzing runs in " + dir + " using " + str(eqSteps)  + " equilibration steps." + "\n")
+#print("Analyzing runs in " + dir + " using " + str(eqSteps)  + " equilibration steps." + "\n")
+print("Analyzing runs in " + dir + "." + "\n")
 
 thermoFiles = glob.glob(dir + "*/*thermo*")
 print("Found files: " + str(thermoFiles) + "\n")

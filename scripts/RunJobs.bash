@@ -1,12 +1,12 @@
 #!/bin/bash
 
 pot=LJ
-m=2
+potabr=LJ
+m=2500
+#Temperatures=( 0.9 1.0 )
+#Pressures=( 0.9 1.0 )
 Temperatures=( 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 )
 Pressures=( 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 )
-
-
-
 #Temperatures=( 0.1 0.2 0.3 0.4 0.5)
 #Pressures=( 0.1 )
 curDir=`pwd`
@@ -23,8 +23,8 @@ do
          newDir=../data/${pot}/m${m}/P${P}_T${T}_m${m}
          echo Making directory ${newDir}
          mkdir -p ${newDir}
-         echo Making input file ${inFile}
          inFile=${newDir}/INPUT
+         echo Making input file ${inFile}
 
 
 cat >${inFile} << EOL
@@ -54,8 +54,8 @@ VADJ       100000
 EOL
 
 
-         echo Making job script file ${jobFile}
          jobFile=${newDir}/job.csh
+         echo Making job script file ${jobFile}
 
 
 cat >${jobFile} << EOL
@@ -66,7 +66,7 @@ cat >${jobFile} << EOL
 #BSUB -o output.%J
 #BSUB -e errors.%J
 #BSUB -q single_chassis
-#BSUB -J ljM${m}P${P}T${T}
+#BSUB -J ${potabr}M${m}P${P}T${T}
 ##BSUB -L /bin/csh
 
 set CASESTR=P${P}_T${T}_m${m}\${LSB_JOBID}
