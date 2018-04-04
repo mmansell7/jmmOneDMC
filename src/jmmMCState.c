@@ -16,7 +16,7 @@ static int resultFlag;
 static double EUp,EDown,h,dlEstimate,lTryMin,lTryMax,b;
 static double *rijTest,*eijTest,*e6ijTest,*e12ijTest;
 static long int gs11,gs12;
-static double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
+double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
 static double params[2];
 
 // IMPORTANT. Define the MCState struct. This struct holds the state of the system
@@ -30,7 +30,7 @@ struct MCState {
   //  that practice.
 
   unsigned long int N;             // Number of particles
-  unsigned int nbn;                         // Number of neighbors with which each particle can
+  int nbn;                         // Number of neighbors with which each particle can
                                    //   interact.  -1 for no limit.
   unsigned long int sn;            // Step number
   unsigned long int numSteps;      // Number of steps (total steps requested)
@@ -158,8 +158,8 @@ struct MCState {
   
   
   char potStr[20];                 // String defining the potential type
-  double * (*phi)(double *rij,     // Pointer to the
-      void *params);               //   interparticle potential function
+  void (*phi)(double *rij,     // Pointer to the
+      void *params, double phi[6]);//   interparticle potential function
   int (*qad)(struct MCState *,     // Pointer a potential-specific, quicker,
      unsigned long int *nm,double *d);  // displacement trial function
   int (*qav)(struct MCState *);    // Pointer to a potential-specific, quicker,
@@ -205,7 +205,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->N          = inp.N;
 	mcs->P          = inp.P;
 	mcs->T          = inp.T;
-	mcs->nbn        = (unsigned int) inp.nbn;
+	mcs->nbn        = inp.nbn;
         mcs->numSteps   = inp.ns;
         mcs->relaxFlag  = inp.relaxFlag;
         mcs->cpi        = inp.cpi;
@@ -425,6 +425,52 @@ struct MCState * setupMCS(struct MCInput inp) {
 	return mcs;
 }
 
+void freeMCS(struct MCState *mcs) {
+	int ii;
+	
+	free(mcs->eij);
+	free(mcs->e12ij);
+	free(mcs->e6ij);
+	free(mcs->virij);
+	free(mcs->vir12ij);
+	free(mcs->vir6ij);
+	free(mcs->eijTrial);
+	free(mcs->e12ijTrial);
+	free(mcs->e6ijTrial);
+	free(mcs->virijTrial);
+	free(mcs->vir12ijTrial);
+	free(mcs->vir6ijTrial);
+	free(mcs->r);
+	free(mcs->rij);
+	free(mcs->rTrial);
+	free(mcs->rijTrial);
+	free(mcs->indind[ii]);
+        for (ii = 0; ii < mcs->N-1; ii++) {
+                free(mcs->indind[ii]);
+        }
+        free(mcs->indind);
+	free(mcs->iii);
+	free(mcs->jjj);
+	free(mcs->rhol);
+	free(mcs->rhoA);
+	free(mcs->rhoM);
+        for (ii = 0; ii < mcs->gns; ii++) {
+                free(mcs->gl[ii]);
+                free(mcs->gA[ii]);
+                free(mcs->gM[ii]);
+                fclose(mcs->gf[ii]);
+	}
+	free(mcs->gl);
+	free(mcs->gA);
+	free(mcs->gM);
+	free(mcs->gf);
+	free(rijTest);
+	free(eijTest);
+	free(e12ijTest);
+	free(e6ijTest);
+	
+	free(mcs);
+}
 
 // Print the current step
 void printStep(struct MCState *mcs) {
@@ -438,7 +484,7 @@ void printStep(struct MCState *mcs) {
 int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 	unsigned long int ii,jj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13;
-	double *phiij,params[2];
+	double phiij[6],params[2];
 	params[0] = 1;
 
 	#pragma omp single
@@ -500,7 +546,7 @@ int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			else {
 				rij1          = mcs->rijTrial[ind];
 				
-				phiij = mcs->phi(&rij1,params);
+				mcs->phi(&rij1,params,phiij);
 				mcs->eijTrial[ind]     = phiij[0];
 				mcs->e12ijTrial[ind]   = phiij[2];
                                 mcs->e6ijTrial[ind]    = phiij[4];
@@ -724,7 +770,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
         
 	unsigned long int ii,jj,dj,ind;
 	double rij1,rij3,rij6,rij7,rij12,rij13;
-        double *phiij,params[2];
+        double phiij[6],params[2];
 	params[0] = 1;
 	params[1] = mcs->l;
 
@@ -755,7 +801,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 		}
 	}
 	else {
-		#pragma omp single
+		//#pragma omp single
 		{
 		mcsdE = 0;
 		mcsdE12 = 0;
@@ -763,8 +809,9 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 		mcsdVir = 0;
 		mcsdVir12 = 0;
 		mcsdVir6 = 0;
+                //printf("mcs->dVir,mcsdVir = %5.5G, %5.5G\n",mcs->dVir,mcsdVir);
 		}
-		#pragma omp barrier
+		//#pragma omp barrier
                 
 		#pragma omp for private(ii,jj,dj,ind,rij1,rij3,rij6,rij7,rij12,rij13) \
                             reduction(+:mcsdE,mcsdE6,mcsdE12,mcsdVir,mcsdVir6,mcsdVir12)
@@ -783,7 +830,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			else {
 				rij1 = mcs->rijTrial[ind];
 				
-				phiij                  = mcs->phi(&rij1,params);
+				mcs->phi(&rij1,params,phiij);
 				mcs->eijTrial[ind]     = phiij[0];
 				mcs->e12ijTrial[ind]   = phiij[2];
                                 mcs->e6ijTrial[ind]    = phiij[4];
@@ -796,13 +843,52 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			mcsdE     = mcsdE     - mcs->eij[ind]     + mcs->eijTrial[ind];
 			mcsdE12   = mcsdE12   - mcs->e12ij[ind]   + mcs->e12ijTrial[ind];
 			mcsdE6    = mcsdE6    - mcs->e6ij[ind]    + mcs->e6ijTrial[ind];
+			/*if ( isnan(mcs->virijTrial[ind]) || isnan(mcs->virij[ind]) || isnan(mcsdVir) ) {
+			//if ( mcs->sn == 6166) {
+				printf("For ind = %lu,  r[%lu] = %5.5G, r[%lu] = %5.5G, rij,(trial) = %5.5G,%5.5G, virij,(trial) = %5.5G,%5.5G, mcsdVir = %5.5G\n",ind,ii,mcs->r[ii],mcs->nm,mcs->r[mcs->nm],mcs->rij[ind],mcs->rijTrial[ind],mcs->virij[ind],mcs->virijTrial[ind],mcsdVir);
+			}*/
+			/*if ( isnan(mcs->virij[ind])) {
+			//if ( mcs->sn == 6166) {
+				printf("For ind = %lu,  r[%lu] = %5.5G,  mcs->virij = %5.5G!\n",ind,ii,ii+dj+1,mcs->virij[ind]);
+			}
+			if ( isnan(mcsdVir)) {
+			//if ( mcs->sn == 6166) {
+				printf("For ind = %lu,  r[%lu][%lu] = %5.5G,  mcsdVir (before adding ii,jj contributions) = %5.5G!\n",ii,ii+dj+1,ind,mcsdVir);
+			}*/
 			mcsdVir   = mcsdVir   - mcs->virij[ind]   + mcs->virijTrial[ind];
+			/*if ( isnan(mcsdVir) ) {
+				printf("For ii,jj,ind = %lu,%lu,%lu,  mcsdVir (after adding ii,jj contributions) = %5.5G!\n",ii,ii+dj+1,ind,mcsdVir);
+			}*/
 			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
 			mcsdVir6  = mcsdVir6  - mcs->vir6ij[ind]  + mcs->vir6ijTrial[ind];
 		}
-                
+                //printf("mcsdVir = %5.5G\n",mcsdVir);
+                //fflush(stdout);
                 #pragma omp barrier
-                
+		#pragma omp single
+		{
+		//if ( isnan(mcsdVir) ) {
+                //    printf("dVir is NAN!!\n");
+                //}
+                mcs->dE = mcsdE;
+                mcs->dE12 = mcsdE12;
+		mcs->dE6 = mcsdE6;
+		mcs->dVir = mcsdVir;
+		mcs->dVir12 = mcsdVir12;
+		mcs->dVir6 = mcsdVir6;
+		//printf("mcs->dVir,mcsdVir: %5.5G, %5.5G\n",mcs->dVir,mcsdVir);
+                //fflush(stdout);
+		}
+
+                {
+                mcsdE = 0;
+		mcsdE12 = 0;
+		mcsdE6 = 0;
+		mcsdVir = 0;
+		mcsdVir12 = 0;
+		mcsdVir6 = 0;
+                }
+		
                 ii = 7;
                 //printf("mcs->nm: %lu  ii: %lu\n",mcs->nm,ii);
                 //fflush(stdout);
@@ -823,7 +909,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			else {
 				rij1 = mcs->rijTrial[ind];
 				
-				phiij                  = mcs->phi(&rij1,params);
+				mcs->phi(&rij1,params,phiij);
 				mcs->eijTrial[ind]     = phiij[0];
 				mcs->e12ijTrial[ind]   = phiij[2];
                                 mcs->e6ijTrial[ind]    = phiij[4];
@@ -840,17 +926,18 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			mcsdVir12 = mcsdVir12 - mcs->vir12ij[ind] + mcs->vir12ijTrial[ind];
 			mcsdVir6  = mcsdVir6  - mcs->vir6ij[ind]  + mcs->vir6ijTrial[ind];
 		}
-		
+                //printf("mcsdVir = %5.5G\n",mcsdVir);
+                //fflush(stdout);
 		#pragma omp barrier  // THIS BARRIER IS CRITICAL TO CALCULATE dE ACCURATELY (I DO NOT UNDERSTAND WHY THAT SHOULD BE THE CASE)
 		#pragma omp single
 		{
-		mcs->dE = mcsdE;
-                mcs->dE12 = mcsdE12;
-		mcs->dE6 = mcsdE6;
-		mcs->dVir = mcsdVir;
-		mcs->dVir12 = mcsdVir12;
-		mcs->dVir6 = mcsdVir6;
-		//printf("mcs->dE: %.5G\n",mcs->dE);
+		mcs->dE = mcs->dE + mcsdE;
+                mcs->dE12 = mcs->dE12 + mcsdE12;
+		mcs->dE6 = mcs->dE6 + mcsdE6;
+		mcs->dVir = mcs->dVir + mcsdVir;
+		mcs->dVir12 = mcs->dVir12 + mcsdVir12;
+		mcs->dVir6 = mcs->dVir6 + mcsdVir6;
+		//printf("mcs->dVir,mcsdVir: %5.5G, %5.5G\n",mcs->dVir,mcsdVir);
                 //fflush(stdout);
                 }
 		
@@ -1128,7 +1215,7 @@ int qav(struct MCState *mcs) {
 int qavLJ(struct MCState *mcs) {
 	unsigned long int ii,jj,ind;
 	double dQ;
-	double *phiij,params[2];
+	double phiij[6],params[2];
 	params[0] = 1;
 
 	printf("Into qavLJ\n");
@@ -1158,7 +1245,6 @@ int qavLJ(struct MCState *mcs) {
 		mcs->E6  = mcs->E6Trial;
 		
 		mcs->l = mcs->l + mcs->dl;
-		params[1] = mcs->l;
 		
 		lRat7 = lRat6/lRat1;
 		lRat13 = lRat12/lRat1;
@@ -1166,6 +1252,7 @@ int qavLJ(struct MCState *mcs) {
 		mcs->Vir12 = lRat13*mcs->Vir12;
 		mcs->Vir    = mcs->N*mcs->T/mcs->l + mcs->Vir12 - mcs->Vir6;
 		}
+		params[1] = (double) mcs->l;
 		
 		#pragma omp single private(ii) nowait
 		for (ii = 0; ii < mcs->N; ii++) {
@@ -1177,11 +1264,16 @@ int qavLJ(struct MCState *mcs) {
 			ii = mcs->iii[ind];
 			jj = mcs->jjj[ind];
 			mcs->rij[ind]     = lRat1*mcs->rij[ind];
-      			phiij       = mcs->phi(&(mcs->rij[ind]),params);
+      			mcs->phi(&(mcs->rij[ind]),&params,phiij);
 	      		mcs->eij[ind] = phiij[0];
       			mcs->e12ij[ind] = phiij[2];
       			mcs->e6ij[ind] = phiij[4];
 			mcs->virij[ind]  = phiij[1];
+			/*if ( isnan( mcs->virij[ind] ) ) {
+				printf("14 mcs->dl = %5.5G, mcs->l = %5.5G, params[1] = %5.5G\n",mcs->dl,mcs->l,params[1]);
+				printf("PARAMS IN JMMMCSTATE: params,&(params[0]),&(params[1]) = %p,%p,%p  *params = %2.2G,%5.5G\n",params,&(params[0]),&(params[1]),params[0],params[1]);
+				printf("r[%lu],r[%lu] = %5.5G,%5.5G  rij = %5.5G   virij = %5.5G\n",ii,jj,mcs->r[ii],mcs->r[jj],mcs->rij[ind],mcs->virij[ind]);
+			}*/
 			mcs->vir12ij[ind] = phiij[3];
 			mcs->vir6ij[ind]  = phiij[5];
 		}
@@ -1400,7 +1492,7 @@ int updateThermo(struct MCState *mcs) {
 int ECheck(struct MCState *mcs) {
   unsigned long int iq,ind,ii,jj;
   double rij1,rij3,rij6,rij12;
-  double *phiij,params[2];
+  double phiij[6],params[2];
   params[0] = 0;
   
   #pragma omp barrier 
@@ -1419,7 +1511,7 @@ int ECheck(struct MCState *mcs) {
     else {
       rij1 = rijTest[iq];
       
-      phiij       = mcs->phi(&rij1,params);
+      mcs->phi(&rij1,params,phiij);
       eijTest[iq] = phiij[0];
       e12ijTest[iq] = phiij[2];
       e6ijTest[iq] = phiij[4];
@@ -1471,7 +1563,7 @@ int ECheck(struct MCState *mcs) {
     else {
       mcs->rij[ind]          = mcs->r[jj] - mcs->r[ii];
 			
-      phiij                   = mcs->phi(&(mcs->rij[ind]),params);
+      mcs->phi(&(mcs->rij[ind]),params,phiij);
       mcs->eij[ind]      = phiij[0];
       mcs->e12ij[ind]    = phiij[2];
       mcs->e6ij[ind]     = phiij[4];
@@ -1580,7 +1672,7 @@ int printAcc(struct MCState *mcs) {
 int fav(struct MCState *mcs) {
 	unsigned long int ii,jj,ind;
 	double rij1a,rij3a,rij6a,rij7a,rij12a,rij13a;
-	double *phiij;
+	double phiij[6];
 	
 	#pragma omp single
 	{
@@ -1622,7 +1714,7 @@ int fav(struct MCState *mcs) {
 		else {
 			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
 			
-			phiij                   = mcs->phi(&rij1a,params);
+			mcs->phi(&rij1a,params,phiij);
 			mcs->eijTrial[ind]      = phiij[0];
 			mcs->e12ijTrial[ind]    = phiij[2];
 			mcs->e6ijTrial[ind]     = phiij[4];
@@ -1788,8 +1880,8 @@ int getRelaxFlag(struct MCState *mcs) {
 int relaxVolume(struct MCState *mcs) {
 //int fav(struct MCState *mcs) {
     unsigned long int ii,jj,ind;
-    double rij1a,rij3a,rij6a,rij7a,rij12a,rij13a;
-    double *phiij;
+    double relaxCrit,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a;
+    double phiij[6];
     int count,maxTries;
     
     maxTries = 20;
@@ -1938,16 +2030,21 @@ for ( count = 0; count < 20; count++ ) {
         #pragma omp single
         {
         double first,second;
+        double relaxMax;
+
         first  = (EUp - EDown) / (2*h);
         second = (EUp - 2.0*mcs->E + EDown) / (h*h);
         dlEstimate = -( mcs->P - ( (double) mcs->N/mcs->l)*mcs->T  + first) / second;
 	//printf("EUp,E,EDown,first,second,dlEstimate = %.5G,%.5G,%.5G,%.5G,%.5G,%.5G\n", \
         //          EUp,mcs->E,EDown,first,second,dlEstimate);
-        if ( dlEstimate > 0 ) {
-            lTryMin = mcs->l;
-        }
-        else {
-            lTryMax = mcs->l;
+        relaxMax = (double) 0.10*mcs->N;
+        if ( fabs(dlEstimate) > relaxMax ) {
+            if ( dlEstimate < 0 ) {
+                dlEstimate = -relaxMax;
+            }
+            else {
+                dlEstimate = relaxMax;
+            }
         }
         
         if ( mcs->l + dlEstimate > lTryMax ) {
@@ -1957,20 +2054,19 @@ for ( count = 0; count < 20; count++ ) {
             dlEstimate = 0.5*(lTryMin - mcs->l);
         }
         
-        if ( fabs(dlEstimate) > 200 ) {
-            if ( dlEstimate < 0 ) {
-                dlEstimate = -200;
-            }
-            else {
-                dlEstimate = 200;
-            }
+        if ( dlEstimate > 0.0 ) {
+            lTryMin = mcs->l;
         }
+        else {
+            lTryMax = mcs->l;
         }
-// 6. If the current volume is within 5 of the estimated "minimum energy"
+        
+        }
+// 6. If the current volume is within relaxCrit of the estimated "minimum energy"
 //      volume, move and exit the loop.  Otherwise, move and go back to
 //      1.
-        
-        if ( fabs(dlEstimate) < 5 ) {
+        relaxCrit = 0.0025*mcs->N;
+        if ( fabs(dlEstimate) < relaxCrit ) {
             moveVolume(mcs,mcs->l + dlEstimate);
             
             #pragma omp single
@@ -2171,7 +2267,7 @@ unsigned long int getStepNum(struct MCState *mcs) {
 double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl) {
         unsigned long int ind,ii,jj;
         double rij1a;
-        double *phiij;
+        double phiij[6];
         #pragma omp single
         {
         params[0] = 0;
@@ -2200,7 +2296,7 @@ double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl) {
 		else {
 			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
 			
-			phiij                   = mcs->phi(&rij1a,params);
+			mcs->phi(&rij1a,params,phiij);
 			mcs->eijTrial[ind]      = phiij[0];
 			mcs->e12ijTrial[ind]    = phiij[2];
 			mcs->e6ijTrial[ind]     = phiij[4];
@@ -2219,7 +2315,7 @@ double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl) {
 int moveVolume(struct MCState *mcs,double l) {
         unsigned long int ind,ii,jj;
         double rij1a;
-        double *phiij;
+        double phiij[6];
 
 	#pragma omp single
 	{
@@ -2260,7 +2356,7 @@ int moveVolume(struct MCState *mcs,double l) {
 		else {
 			mcs->rij[ind]        = mcs->r[jj] - mcs->r[ii];
 			
-			phiij                = mcs->phi(&(mcs->rij[ind]),params);
+			mcs->phi(&(mcs->rij[ind]),params,phiij);
 			mcs->eij[ind]      = phiij[0];
 			mcs->e12ij[ind]    = phiij[2];
 			mcs->e6ij[ind]     = phiij[4];

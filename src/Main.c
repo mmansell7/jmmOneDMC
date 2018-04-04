@@ -185,6 +185,7 @@ int main (int argc, char *argv[]) {
 	printf("\nPROGRAM COMPLETED SUCCESSFULLY!\n");
 	printE(mcs);
         printAcc(mcs);
+	freeMCS(mcs);
         return 0;
 
 }

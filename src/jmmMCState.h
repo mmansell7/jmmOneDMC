@@ -1,6 +1,9 @@
 
+extern double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
+
 struct MCState;
 struct MCState * setupMCS();
+void freeMCS(struct MCState *);
 void printStep(struct MCState *);
 int printMCP(struct MCState *mcs1);
 int printThermo(struct MCState *mcs);
