@@ -15,15 +15,14 @@
 //  pressure contributions.
 
 
-double * phiLJ(double *d, void *params) {
+void phiLJ(double *d, void *params, double phi[6]) {
 	double rij1,rij3,rij6,rij7,rij12,rij13;
 	double phitot,phi6,phi12;
         double l;
 	double virtot,vir6,vir12;
-	double *phi = (double *) malloc(6*sizeof(double));
+	//double *phi = (double *) malloc(6*sizeof(double));
+	double *p = (double *) params;
 	
-        double *p = (double *) params;
-        
 	rij1 = *d;
 	rij3 = rij1*rij1*rij1;
 	rij6 = 1/(rij3*rij3);
@@ -45,6 +44,14 @@ double * phiLJ(double *d, void *params) {
 	  vir12  = 48/l*rij12;
 	  virtot = vir12 - vir6;
           phi[1] = virtot;
+          //if ( isnan( virtot ) ) {
+            //printf("In pot.c: params,&params[0],&params[1] = %p,%p,%p  *params = %2.2G,%5.5G\n",params,&(params[0]),
+	    //	&(params[1]),((double *) params)[0],((double *) params)[1]);
+            //printf("params[0] = %2.2G  l =  %5.5G  rij1,rij3,rij6,rij7,rij12,rij13 = %5.5G,%5.5G,%5.5G,%5.5G,%5.5G,"
+            //       "%5.5G  vir6,vir12,virtot,phi[1] = %5.5G,%5.5G,%5.5G,%5.5G\n",params[0],l,rij1,rij3,rij6,rij7,rij12,
+            //       rij13,vir6,vir12,virtot,phi[1]);
+	    //	   fflush(stdout);
+          //}
 	  phi[3] = vir12;
           phi[5] = vir6;
 	}
@@ -54,15 +61,14 @@ double * phiLJ(double *d, void *params) {
 	  phi[5] = 0;
 	}
 
-	return phi;
+	//return phi;
 }
 
 
 
-double * phiHarmonic(double *d, void *params) {
+void phiHarmonic(double *d, void *params, double phi[6]) {
     double rijm,l;
-    double *phi = (double *) malloc(6*sizeof(double));
-
+    //double *phi = (double *) malloc(6*sizeof(double));
     double *p = (double *) params;
     
     if ( *d >= 0 ) {
@@ -77,7 +83,7 @@ double * phiHarmonic(double *d, void *params) {
         }
     }
     
-    return phi;
+    //return phi;
 }
 
 

@@ -48,6 +48,18 @@ ax.set_zlabel('E')
 
 fig.savefig('tmp.png')
 
+for ii in xrange(0,360,30):
+        aa = 0+35/360*ii
+	bb = 0. + (35./360.)*np.float(ii)
+	print('ii: ' + str(ii) + '  aa: ' + str(aa) + '  bb: ' + str(bb))
+        ax.view_init(elev=bb, azim=ii)
+        fig.savefig("movie%d.png" % ii)
+
+plt.close()
+
+
+
+
 
 
 
