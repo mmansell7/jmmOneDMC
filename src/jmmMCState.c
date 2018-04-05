@@ -1218,7 +1218,7 @@ int qavLJ(struct MCState *mcs) {
 	double phiij[6],params[2];
 	params[0] = 1;
 
-	printf("Into qavLJ\n");
+	//printf("Into qavLJ\n");
 	#pragma omp single
 	{
 	mcs->dl = (mcs->rn-0.5)*2*mcs->maxdl;
