@@ -1,4 +1,9 @@
 #!/gpfs_share/santiso/SOFTWARE/miniconda2/envs/santimulators_1/bin/python
+#BSUB -W 03:00
+#BSUB -o output.%J
+#BSUB -e errors.%J
+#BSUB -q single_chassis
+#BSUB -J An.Mean.
 
 ################################################################
 #  Analyze_Mean.py :
@@ -43,10 +48,21 @@ import re
 
 blockSize = int(1000000)
 printInterval = 10000
-summaryFile = open("Summary_tmp.txt","a")
+
+potentialType='LJ'
+if potentialType == 'LJ':
+	summaryFile = open("LJ_Means.dat","w")
+	# Use the first option for command-line input of the target directory
+	dir = "../data/LJ/m-1/Longest/"
+elif potentialType == 'HARMONIC':
+	summaryFile = open("HARMONIC_Means.dat","w")
+	# Use the first option for command-line input of the target directory
+	dir = "../data/HARMONIC/m1/"
 summaryFile.write('P\tT\tEnergy\tLength\n')
 
-dir = sys.argv[1]
+# Use the first option for command-line input of the target directory
+# dir = sys.argv[1]
+
 #eqSteps = int(sys.argv[2])
 
 #print("eqSteps: " + str(eqSteps))

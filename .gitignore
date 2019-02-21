@@ -17,3 +17,4 @@ src/rho.dat.*
 src/g*.dat.*
 src/config.dat.*
 src/thermo.dat.*
+scripts/*.png

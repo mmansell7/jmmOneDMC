@@ -1,26 +1,40 @@
 #!/bin/bash
 
-pot=LJ
-potabr=LJ
+# Uncommented lines below to run with LJ potential
+#pot=LJ
+#potabr=LJ
+#m=-1
+
+# Uncomment lines below to run with harmonic potential
+pot=HARMONIC
+potabr=HARM
 m=-1
-#Temperatures=( 0.9 1.0 )
-#Pressures=( 0.9 1.0 )
-Temperatures=( 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 )
-Pressures=( 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 )
-#Temperatures=( 0.1 0.2 0.3 0.4 0.5)
-#Pressures=( 0.1 )
+
 curDir=`pwd`
+
+Temperatures=( 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.2 2.4 2.6 2.8 3.0 5.0 10.0 )
+#Pressures=( 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.1 2.2 2.3 2.4 2.5 2.6 2.7 2.8 2.9 3.0 5.0 10.0 )
+Pressures=( 5.0 10.0 )
+
 for P in "${Pressures[@]}"
 do
    for T in "${Temperatures[@]}"
    do
+#Pressures=(    0.6 )
+#Temperatures=( 0.5 )
+#for ii in `seq 0 41`
+#do
+#      P=${Pressures[$ii]}
+#      T=${Temperatures[$ii]}
+
       echo Pot: ${pot}  m: ${m}   P: ${P}   T: ${T}
-      f=../data/${pot}/m${m}/P${P}_T${T}
-      if ls ../data/${pot}/m${m}/P${P}_T${T}_* 1> /dev/null 2>&1; then
+
+      f=../data/${pot}/m${m}/Running_Jobs/P${P}_T${T}
+      if ls ../data/${pot}/m${m}/Running_Jobs/P${P}_T${T}_* 1> /dev/null 2>&1; then
          echo Directory exists.  Skipping.
       else
          echo Directory does not exist.  Preparing this case.
-         newDir=../data/${pot}/m${m}/P${P}_T${T}_m${m}
+         newDir=../data/${pot}/m${m}/Running_Jobs/P${P}_T${T}_m${m}
          echo Making directory ${newDir}
          mkdir -p ${newDir}
          inFile=${newDir}/INPUT
