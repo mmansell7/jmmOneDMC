@@ -5,6 +5,7 @@
 #include <string.h>
 #include "jmmMCState.h"
 #include "pot.h"
+#include "stdbool.h"
 
 // Some file-global variables (available to all functions defined in this
 //  file, but not to functions defined in other files) are necessary
@@ -29,6 +30,9 @@ struct MCState {
   // Note: Use of typedefs to hide pointers is discouraged.  I have gone away from
   //  that practice.
 
+  bool isRestart;                  // Boolean flag determining whether this is a restart run
+                                   //   false: not restart
+  
   unsigned long int N;             // Number of particles
   int nbn;                         // Number of neighbors with which each particle can
                                    //   interact.  -1 for no limit.
@@ -170,6 +174,9 @@ struct MCState {
 // Print to stdout the (not necessarily) constant "parameters" defining the 
 //  requested simulation conditions.
 int printMCP(struct MCState *mcs1) {
+        if (mcs1->isRestart) {
+            printf("*** THIS IS A RESTART RUN ***\n");
+        }
 	printf("Printing Monte Carlo parameters...\n");
         printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
 	printf("Potential: %s\n",mcs1->potStr);
@@ -202,6 +209,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         char gfstr[20];
         
         // Initialize parameters provided by input struct.
+        mcs->isRestart  = inp.isRestart;
         mcs->N          = inp.N;
 	mcs->P          = inp.P;
 	mcs->T          = inp.T;

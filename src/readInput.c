@@ -8,14 +8,15 @@
 struct MCInput readInput(char *fstr) {
 
 	/*	Read input arguments:
+                        0.  Is this a restart?
 			1.  Number of Particles
 			2.  Pressure
 			3.  Temperature
 			4.  Neighbor number limit
 			5.  Number of trial steps
 			6.  Potential type
-			7.  Maximum particle displacement
-			8.  Maximum box length change
+			7.  Initial maximum particle displacement
+			8.  Initial maximum box length change
 			9.  Configuration print interval
 			10. Thermo print interval
 			11. Rho bin width
@@ -45,10 +46,14 @@ struct MCInput readInput(char *fstr) {
     }
    
     while ( fgets(line,100,infile) != NULL) {
-        // get the property identifier token
+        // get the first word from line into token
         token = strtok(line, s);
         
-        if ( strncmp(token,"N",10) == 0 ) {
+        if ( strncmp(token,"RESTART",10) == 0 ) {
+            inp.isRestart = true;
+        }
+        
+        else if ( strncmp(token,"N",10) == 0 ) {
             // Get the first value token
             token = strtok(NULL, s);
             /* walk through remaining value tokens */

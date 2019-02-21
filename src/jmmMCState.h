@@ -1,3 +1,4 @@
+#include <stdbool.h>
 
 extern double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
 
@@ -41,7 +42,8 @@ int moveVolume(struct MCState *mcs,double l);
 
 
 struct MCInput {
-  
+
+  bool isRestart;
   unsigned long int N;
   double P;
   double T;
