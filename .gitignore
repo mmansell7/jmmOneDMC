@@ -18,3 +18,13 @@ src/g*.dat.*
 src/config.dat.*
 src/thermo.dat.*
 scripts/*.png
+scripts/1D_Restarter.bash
+scripts/87198bkiller.bash
+scripts/HARMONIC_Means.dat.bkp
+scripts/MeanPlots20190110
+scripts/Plot_AutoCorrelation.pyc
+scripts/StdevTmp_20190113
+scripts/new.txt scripts/Summary_SD_Sorted.txt scripts/Summary_SD_tmp.txt scripts/Summary_sorted.txt
+scripts/identify_gaps.bash
+src/jobscript.csh
+src/INPUT_smalltest
