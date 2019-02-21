@@ -24,9 +24,8 @@ scripts/HARMONIC_Means.dat.bkp
 scripts/MeanPlots20190110
 scripts/Plot_AutoCorrelation.pyc
 scripts/StdevTmp_20190113
-scripts/new.txt scripts/Summary_SD_Sorted.txt scripts/Summary_SD_tmp.txt scripts/Summary_sorted.txt
 scripts/identify_gaps.bash
 src/jobscript.csh
 src/INPUT_smalltest
-scripts/new.txt scripts/Summary_SD_Sorted.txt scripts/Summary_SD_tmp.txt scripts/Summary_sorted.txt
 src/INPUT
+scripts/*.txt
