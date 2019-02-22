@@ -319,6 +319,65 @@ struct MCState * setupMCS(struct MCInput inp) {
     mcs->jjj        = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
     mcs->indind     = (unsigned long int **) malloc((mcs->N-1)*sizeof(unsigned long int *));
     
+    // Initialize the array ("indind") that maps the pair of particle indices
+    //   ii and dj (= jj-ii-1) to a scalar pair index.
+    // Also initialize the "inverse" arrays ("iii","jjj") that map the scalar pair index
+    //   back to the pair of scalar particle indices.
+    ind = 0;
+    for (ii = 0; ii < mcs->N-1; ii++) {
+            (*mcs).indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
+            for (jj = ii + 1; jj < mcs->N; jj++) {
+                    dj = jj - ii - 1;
+                    mcs->indind[ii][dj] = ind;
+                    mcs->iii[ind] = ii;
+                    mcs->jjj[ind] = jj;
+                    ind++;
+            }
+    }
+    
+    // Initialize accumulators to 0
+    mcs->lA         = 0;
+    mcs->lSA        = 0;
+    mcs->EA         = 0;
+    mcs->ESA        = 0;
+    mcs->VirA       = 0;
+    mcs->VirSA      = 0;
+
+    mcs->dAcc[0]    = 0;
+    mcs->dAcc[1]    = 0;
+    mcs->vAcc[0]    = 0;
+    mcs->vAcc[1]    = 0;
+    
+    // Initialize block accumulator, last-step-state, and block mean arrays
+    //  for density.
+    mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
+    mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
+    mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
+    for (ii = 0; ii < mcs->rhonb; ii++) {
+            mcs->rhol[ii] = 0;
+            mcs->rhoA[ii] = 0;
+            mcs->rhoM[ii] = 0;
+    }
+        
+    // Initialize block accumulator, last-step-state, and block mean arrays
+    //  for g(r) or two-particle density.  And, open the corresponding
+    //  output files.
+    mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
+    mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
+    mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
+    mcs->gf = (FILE **) malloc(mcs->gns*sizeof(FILE *));
+    for (ii = 0; ii < mcs->gns; ii++) {
+            mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+            mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+            mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
+            sprintf(gfstr,"g%lu.dat.mcs",ii);
+            mcs->gf[ii] = fopen(gfstr,"w");
+            for (jj = 0; jj < mcs->gnb; jj++) {
+                    mcs->gl[ii][jj] = 0;
+                    mcs->gA[ii][jj] = 0;
+                    mcs->gM[ii][jj] = 0;
+            } 
+    }       
     
     // If this is a restart run, read info from data files to re-initialize
     if ( mcs->isRestart == true ) {
@@ -328,243 +387,137 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->tf = fopen("thermo.dat.mcs","r+");
         mcs->rhof = fopen("rho.dat.mcs","r+");
         
-        // Find last configuration in config.dat.mcs.
-        // Read the last step number, and the particle positions at that point.
-        //mcs->sn         = 0;
-        fseek(mcs->cf,0,SEEK_SET);
-        int c;
-        
-        fseek(mcs->cf,-2,SEEK_END);
-        bool doneReading = false;
-        char *sp = NULL;
-        unsigned int lineSize = 100;
-        char line1[lineSize],line2[lineSize];
+        // Find last complete configuration in config.dat.mcs.
+        // Read data from that configuration.
         bool lineFound,stepFound,completeConfig=false;
+        unsigned int pn,lineSize = 100;
         int nc,linesBelow=-2,npexp=0;
-        unsigned long int snf; // step number found for a given configuration
         long int cfpp; // current file pointer position
-        ii = 0;
-        unsigned int pn;
-        double x,y,z,bl;
+        double x,y,z;
+        char line1[lineSize],line2[lineSize];
         
-        // Read config file from end movng upward.
-        // The string 'Step' is used as a delimiter to indicate
-        // separation of configurations from different step numbers.
-        // The number on the line above 'Step' indicates the number
-        // of particles.
-        // Continue looping until a step with a complete configuration
-        // (number of lines in the configuration matches the number of
-        // particles) is found.
+        // Setup the step number and particle positions from config.mcs.dat
+        //   Start at the end of the file
+        fseek(mcs->cf,-2,SEEK_END);
+        
+        // Continue looping until a COMPLETE configuration is found (all particles)
         while ( !completeConfig ) {
             stepFound = false;
             
             // Loop backwards over lines until 'Step' is found
             while ( !stepFound ) {
-                linesBelow++;
+                linesBelow++;  // Lines counted (in reverse) from EOF or last incomplete 'Step'
                 lineFound = false;
+                
+                // Store 2 lines at a time, makes it easier to get the number of particles
+                //   expected, once 'Step' is found
                 strncpy(line2,line1,lineSize);
                 strncpy(line1,"",lineSize);
-                // printf("linesBelow = %d\n",linesBelow);
-                nc = 0;
-                // printf("nc = %d\n",nc);
+
+                nc = 0;  // Counter for the number of characters on a line
                 
-                // Loop backwards through characters until a new line
-                // is found
-                // printf("Current cursor position: %ld\n",ftell(mcs->cf));
+                // Loop backwards through characters until a new line is found
                 while ( !lineFound ) {
                     nc++;
-                    // printf("nc = %d,  ",nc);
                     if ( ftell(mcs->cf) == 0) {
+                        // Reached beginning of file
                         lineFound = true;
                         fgets(line1, lineSize, mcs->cf);
-                        // printf("Line found!: %s   ", line1);
                         fseek(mcs->cf,0,SEEK_SET);
                         cfpp = ftell(mcs->cf);
                     }
                     else if ( fgetc(mcs->cf) == '\n') {
+                        // Reached beginning of the line
                         lineFound = true;
                         fgets(line1, lineSize, mcs->cf);
-                        // printf("Line found!: %s   ", line1);
                         fseek(mcs->cf,-nc-2,SEEK_CUR);
                         cfpp = ftell(mcs->cf) + 2;
                     }
                     else {
-                        // printf("Line NOT found!");
+                        // Have not reached the beginning of the line yet
                         fseek(mcs->cf,-2,SEEK_CUR);
                     }
-                    // printf("\n");
                 }
                 
-                sp = strstr(line2, "Step");
-                if (sp) {
-                    // printf("Step found!!!  No. particles expected: %s"
-                    //        "No. lines below: %d,  ",line1,linesBelow);
+                // If the LAST line (not this line) contained the substring 'Step'
+                //   then read the step number and box length from that line
+                //   Notice that the step number and box length will be overwritten
+                //   later, if this step is found to be incomplete.
+                if ( strstr(line2, "Step") ) {
                     stepFound = true;
-                    sscanf(line2,"%*s %*s %lu %*s %*s %lg",&snf,&bl);
-                    // printf("Scanning line %s and finding step no. %lu\n",line2,snf);
+                    sscanf(line2,"%*s %*s %lu %*s %*s %lg",&(mcs->sn),&(mcs->l));
                 }
-                else {
-                    // printf("Step NOT found!!!  ");
-                }
-                // printf("\n");
-            //     repeat until you have lines
-            //   find the last instance of "step" in those lines
-            
-            //   get the number of particles from the previous line
-            //   are all of the particles accounted for in lines below?
-            //   If so,
-            //     read the particles below
-            //   If not, go up N-1 lines, and repeat the whole procedure over
-            //
-            // Read from config.dat.mcs
             }
-            sscanf(line1,"%d",&npexp);
-            if ( npexp == linesBelow ) {
-                printf("Complete configuration found for step number %lu\n",snf);
-                printf("Box length: %.8g\n",bl);
+            
+            sscanf(line1,"%d",&npexp); // Read the expected number of particles from this line
+            
+            // If the expected number of particles is not the same as in INPUT, something
+            //   is not right.  Issue an error, and exit.
+            if ( npexp != mcs->N ) {
+                printf("ERROR: Number of particles in config.mcs.dat (%d) is incompatible with "
+                       "number of particles in INPUT (%lu).\n",npexp,mcs->N);
+                exit(1);
+            }
+            
+            // If the number of lines counted up from below matches the number of particles
+            //   in the system, then this is a complete configuration.  Exit the loop.
+            if ( linesBelow == mcs->N) {
+                printf("Complete configuration found for step number %lu\n",mcs->sn);
+                printf("Box length: %.8g\n",mcs->l);
                 completeConfig = true;
             }
+            // If this is not a complete configuration, move the cursor back to the end
+            //   of the previous line, and start looping backwards through the prior
+            //   configuration.
             else {
-                // printf("Incomplete configuration found. line1: %d vs "
-                //        "linesBelow: %d...Continuing...\n",npexp,linesBelow);
                 linesBelow = -2;
             }
         }
+        
+        // Move the cursor back to the line stating the number of particles in the configuration.
+        //   Then skip over that line, and the subsequent line (step no. and box length values)
+        //   to put the cursor at the start of the line containing the position of particle 1.
         fseek(mcs->cf,cfpp,SEEK_SET);
-        // printf("\n");
         fgets(line1,lineSize,mcs->cf);
-        // printf("Line 1:: %s",line1);
         fgets(line1,lineSize,mcs->cf);
-        // printf("Line 2:: %s",line1);
-        // fgets(line1,lineSize,mcs->cf);
-        // printf("Line 3:: %s",line1);
-        for (ii = 0; ii < linesBelow; ii++) {
+        
+        // Initialize particle positions from the identified last complete configuration.
+        for (ii = 0; ii < mcs->N; ii++) {
             fgets(line1,lineSize,mcs->cf);
             sscanf(line1,"%u %lg %lg %lg",&pn,&x,&y,&z);
-            printf("Particle position string: %s",line1);
-            printf("  %u %.8g %.8g %.8g\n",pn,x,y,z);
+            mcs->r[ii]        = z;
         }
-
-        // Save current position of file pointer
-        // Overwrite any subsequent data with whitespace
-        // Move pointer back to its previous position at the
-        //   end of the last complete config
+        
+        // Overwrite any subsequent incomplete configuration data with whitespace, and
+        //   move the pointer back to its previous position at the end of the last 
+        //   complete config
         long int pfcc = ftell(mcs->cf); // position of (end of) final complete config
-        fputs("aaa\n",mcs->cf);
-        fputs("bbb\n",mcs->cf);
+        for (ii = 0; ii < mcs->N; ii++ ) {
+            fprintf(mcs->cf,"\n");
+        }
+        fseek(mcs->cf,pfcc,SEEK_SET);
 
+        // Initialize the counters for "steps since last X print" to zero
         mcs->slcp       = 0; 
         mcs->sltp       = 0;
         mcs->slrho      = 0;
         mcs->slg        = 0;
         
-        // Initialize energy and virial terms to large values
-        mcs->E          = 10E10;
-        mcs->Vir        = 10E10;
+        // Initialize energy and virial terms from (re-)starting configuration.
+        mcs->E          = 10.0E10;
+        mcs->Vir        = 10.0E10;
+        // mcs->E          = mcs->getEnergyFull();
+        // mcs->Vir        = mcs->getVirialFull();
         mcs->md         = 0;
         
-        // Initialize box size based on number of particles.
-        mcs->l          = mcs->N;
-
-        // Initialize accumulators to 0
-        mcs->lA         = 0;
-        mcs->lSA        = 0;
-        mcs->EA         = 0;
-        mcs->ESA        = 0;
-        mcs->VirA       = 0;
-        mcs->VirSA      = 0;
-
-        mcs->dAcc[0]    = 0;
-        mcs->dAcc[1]    = 0;
-        mcs->vAcc[0]    = 0;
-        mcs->vAcc[1]    = 0;
-        
-        ind = 0;
-        for (ii = 0; ii < mcs->N-1; ii++) {
-                (*mcs).indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
-                for (jj = ii + 1; jj < mcs->N; jj++) {
-                        dj = jj - ii - 1;
-                        mcs->indind[ii][dj] = ind;
-                        ind++;
-                }
-        }
-        
-        // Also notice that r and rij initial values are calculated here by
-        //  the particle evenly in the box.
-        ind = 0;
-        for (ii = 0; ii < mcs->N; ii++) {
-                mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
-                for (jj = ii+1; jj < mcs->N; jj++) {
-                        mcs->iii[ind] = ii;
-                        mcs->jjj[ind] = jj;
-                        ind++; 
-                }
-        }
-        
-        for (ind = 0; ind < mcs->numPairs; ind++) {
-                mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
-        }
-        
-        // Initialize block accumulator, last-step-state, and block mean arrays
-        //  for density.
-        mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
-        mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
-        mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
-        for (ii = 0; ii < mcs->rhonb; ii++) {
-                mcs->rhol[ii] = 0;
-                mcs->rhoA[ii] = 0;
-                mcs->rhoM[ii] = 0;
-        }
-        
-        
-        
-        // Initialize block accumulator, last-step-state, and block mean arrays
-        //  for g(r) or two-particle density.  And, open the corresponding
-        //  output files.
-        mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
-        mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
-        mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
-        mcs->gf = (FILE **) malloc(mcs->gns*sizeof(FILE *));
-        for (ii = 0; ii < mcs->gns; ii++) {
-                mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
-                mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
-                mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
-                sprintf(gfstr,"g%lu.dat.mcs",ii);
-                mcs->gf[ii] = fopen(gfstr,"w");
-                for (jj = 0; jj < mcs->gnb; jj++) {
-                        mcs->gl[ii][jj] = 0;
-                        mcs->gA[ii][jj] = 0;
-                        mcs->gM[ii][jj] = 0;
-                } 
-        }       
-        
-        // Perform a full calculation of the current density and g(r) or two-
-        //  particle density histogram.
-        fgrho(mcs);
-        
-        // Update the density and g(r) accumulators.
-        ugrho(mcs);
-        
-        // Create the random number generator for the system.
-        mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
-        // Seed the random generator 
-        gsl_rng_set(mcs->rangen,mcs->seed);
-        
-        // Flush streams to ensure everything prints before a crash
-        fflush(mcs->cf);
-        fflush(mcs->tf);
-        fflush(stdout);
     }
     
     
-    // Initialize the "steps since last x" variables to -1 so that
-    //  when the corresponding data is written at step 0, they will
-    //  be properly averaged over 1 data point.
     else if ( mcs->isRestart == false ) {
         
         // Open output files
-        mcs->cf = fopen("config.dat.mcs","w");
-        mcs->tf = fopen("thermo.dat.mcs","w");
+        mcs->cf   = fopen("config.dat.mcs","w");
+        mcs->tf   = fopen("thermo.dat.mcs","w");
         mcs->rhof = fopen("rho.dat.mcs","w");
         
         mcs->sn         = 0;
@@ -581,98 +534,38 @@ struct MCState * setupMCS(struct MCInput inp) {
         // Initialize box size based on number of particles.
         mcs->l          = mcs->N;
 
-        // Initialize accumulators to 0
-        mcs->lA         = 0;
-        mcs->lSA        = 0;
-        mcs->EA         = 0;
-        mcs->ESA        = 0;
-        mcs->VirA       = 0;
-        mcs->VirSA      = 0;
-
-        mcs->dAcc[0]    = 0;
-        mcs->dAcc[1]    = 0;
-        mcs->vAcc[0]    = 0;
-        mcs->vAcc[1]    = 0;
-        
-        ind = 0;
-        for (ii = 0; ii < mcs->N-1; ii++) {
-                (*mcs).indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
-                for (jj = ii + 1; jj < mcs->N; jj++) {
-                        dj = jj - ii - 1;
-                        mcs->indind[ii][dj] = ind;
-                        ind++;
-                }
-        }
-        
-        // Also notice that r and rij initial values are calculated here by
-        //  the particle evenly in the box.
-        ind = 0;
+        // Initial values for particle positions are calculated by
+        //  the distributing the particles evenly in the box.
         for (ii = 0; ii < mcs->N; ii++) {
-                mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
-                for (jj = ii+1; jj < mcs->N; jj++) {
-                        mcs->iii[ind] = ii;
-                        mcs->jjj[ind] = jj;
-                        ind++; 
-                }
+            mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
         }
-        
-        for (ind = 0; ind < mcs->numPairs; ind++) {
-                mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
-        }
-        
-        // Initialize block accumulator, last-step-state, and block mean arrays
-        //  for density.
-        mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
-        mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
-        mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
-        for (ii = 0; ii < mcs->rhonb; ii++) {
-                mcs->rhol[ii] = 0;
-                mcs->rhoA[ii] = 0;
-                mcs->rhoM[ii] = 0;
-        }
-        
         
         // Print headers to output files.
         fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
         
-        // Initialize block accumulator, last-step-state, and block mean arrays
-        //  for g(r) or two-particle density.  And, open the corresponding
-        //  output files.
-        mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
-        mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
-        mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
-        mcs->gf = (FILE **) malloc(mcs->gns*sizeof(FILE *));
-        for (ii = 0; ii < mcs->gns; ii++) {
-                mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
-                mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
-                mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
-                sprintf(gfstr,"g%lu.dat.mcs",ii);
-                mcs->gf[ii] = fopen(gfstr,"w");
-                for (jj = 0; jj < mcs->gnb; jj++) {
-                        mcs->gl[ii][jj] = 0;
-                        mcs->gA[ii][jj] = 0;
-                        mcs->gM[ii][jj] = 0;
-                } 
-        }       
-        
-        // Perform a full calculation of the current density and g(r) or two-
-        //  particle density histogram.
-        fgrho(mcs);
-        
-        // Update the density and g(r) accumulators.
-        ugrho(mcs);
-        
-        // Create the random number generator for the system.
-        mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
-        // Seed the random generator 
-        gsl_rng_set(mcs->rangen,mcs->seed);
-        
-        // Flush streams to ensure everything prints before a crash
-        fflush(mcs->cf);
-        fflush(mcs->tf);
-        fflush(stdout);
-     }
-        
+    }
+    
+    for (ind = 0; ind < mcs->numPairs; ind++) {
+            mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
+    }
+    
+    // Perform a full calculation of the current density and g(r) or two-
+    //  particle density histogram.
+    fgrho(mcs);
+    
+    // Update the density and g(r) accumulators.
+    ugrho(mcs);
+    
+    // Create the random number generator for the system.
+    mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
+    // Seed the random generator 
+    gsl_rng_set(mcs->rangen,mcs->seed);
+    
+    // Flush streams to ensure everything prints before a crash
+    fflush(mcs->cf);
+    fflush(mcs->tf);
+    fflush(stdout);
+    
     // Return the pointer to the MCState struct that has just been setup
     return mcs;
 }
