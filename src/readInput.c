@@ -33,7 +33,7 @@ struct MCInput readInput(char *fstr) {
 
 	*/
 	
-    struct MCInput inp;
+    struct MCInput inp = {.isRestart = false};
     FILE *infile = fopen(fstr,"r");
     char line[100];
     const char s[8] = "[ \t\n]";

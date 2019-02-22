@@ -203,112 +203,231 @@ int printMCP(struct MCState *mcs1) {
 
 // Take an MCInput struct and use it to create and return a new MCState struct.
 struct MCState * setupMCS(struct MCInput inp) {
-        struct MCState *mcs = (struct MCState *) malloc(sizeof(struct MCState));
+    struct MCState *mcs = (struct MCState *) malloc(sizeof(struct MCState));
 
-        unsigned long int ii,jj,dj,ind;
-        char gfstr[20];
-        
-        // Initialize parameters provided by input struct.
-        mcs->isRestart  = inp.isRestart;
-        mcs->N          = inp.N;
-	mcs->P          = inp.P;
-	mcs->T          = inp.T;
-	mcs->nbn        = inp.nbn;
-        mcs->numSteps   = inp.ns;
-        mcs->relaxFlag  = inp.relaxFlag;
-        mcs->cpi        = inp.cpi;
-        mcs->tpi        = inp.tpi;
-        mcs->eci        = inp.eci;
-        mcs->mdai       = inp.mdai;
-        mcs->mvai       = inp.mvai;
-	mcs->numPairs   = (unsigned long int) ((double) (mcs->N-1)/2*mcs->N);
-	mcs->nm         = 0;
-	mcs->gpi        = inp.gpi;
-	mcs->rhopi      = inp.rhopi;
-	mcs->gnb        = inp.gnb;
-	mcs->rhonb      = inp.rhonb;
-	mcs->maxStep    = inp.maxStep;
-	mcs->maxdl      = inp.maxdl;
-	mcs->rbw        = inp.rbw;
-	mcs->gsw        = inp.gsw;
-	mcs->gbw        = inp.gbw;
-	mcs->gns        = inp.gns;
-	mcs->seed       = inp.seed;
-        strncpy(mcs->potStr,inp.potStr,20);
-        if ( strncmp(mcs->potStr,"LJ",10) == 0 ) {
-            mcs->phi        = &phiLJ;
-            mcs->qad        = &qad2;
-            if ( mcs->nbn < 0 ) {
-                mcs->qav    = &qavLJ;
-            }
-            else {
-                mcs->qav    = &fav;
-            }
-	    mcs->E6         = -5E10;
-	    mcs->E12        = 5E10;
-	    mcs->Vir6       = -5E10;
-	    mcs->Vir12      = 5E10;
-            mcs->eij        = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->virij      = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->eijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->virijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
-            eijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
-            e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
-            e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
-        }
-        else if ( strncmp(mcs->potStr,"HARMONIC",10) == 0 ) {
-            mcs->phi        = phiHarmonic;
-            mcs->qad        = &qad2;
-            mcs->qav        = &fav;
-	    mcs->E6         = -5E10;
-	    mcs->E12        = 5E10;
-	    mcs->Vir6       = -5E10;
-	    mcs->Vir12      = 5E10;
-            mcs->eij        = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->virij      = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->eijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->virijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
-            mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
-            eijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
-            e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
-            e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
+    unsigned long int ii,jj,dj,ind;
+    char gfstr[20];
+    
+    // Initialize parameters provided by input struct.
+    mcs->isRestart  = inp.isRestart;
+    mcs->N          = inp.N;
+    mcs->P          = inp.P;
+    mcs->T          = inp.T;
+    mcs->nbn        = inp.nbn;
+    mcs->numSteps   = inp.ns;
+    mcs->relaxFlag  = inp.relaxFlag;
+    mcs->cpi        = inp.cpi;
+    mcs->tpi        = inp.tpi;
+    mcs->eci        = inp.eci;
+    mcs->mdai       = inp.mdai;
+    mcs->mvai       = inp.mvai;
+    mcs->numPairs   = (unsigned long int) ((double) (mcs->N-1)/2*mcs->N);
+    mcs->nm         = 0;
+    mcs->gpi        = inp.gpi;
+    mcs->rhopi      = inp.rhopi;
+    mcs->gnb        = inp.gnb;
+    mcs->rhonb      = inp.rhonb;
+    mcs->maxStep    = inp.maxStep;
+    mcs->maxdl      = inp.maxdl;
+    mcs->rbw        = inp.rbw;
+    mcs->gsw        = inp.gsw;
+    mcs->gbw        = inp.gbw;
+    mcs->gns        = inp.gns;
+    mcs->seed       = inp.seed;
+    strncpy(mcs->potStr,inp.potStr,20);
+    if ( strncmp(mcs->potStr,"LJ",10) == 0 ) {
+        mcs->phi        = &phiLJ;
+        mcs->qad        = &qad2;
+        if ( mcs->nbn < 0 ) {
+            mcs->qav    = &qavLJ;
         }
         else {
-            printf("FATAL ERROR: Unknown potential.\nABORTING SIMULATION\n\n");
-            return NULL;
+            mcs->qav    = &fav;
         }
+        mcs->E6         = -5E10;
+        mcs->E12        = 5E10;
+        mcs->Vir6       = -5E10;
+        mcs->Vir12      = 5E10;
+        mcs->eij        = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->virij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->eijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->virijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
+        eijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
+        e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
+        e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
+    }
+    else if ( strncmp(mcs->potStr,"HARMONIC",10) == 0 ) {
+        mcs->phi        = phiHarmonic;
+        mcs->qad        = &qad2;
+        mcs->qav        = &fav;
+        mcs->E6         = -5E10;
+        mcs->E12        = 5E10;
+        mcs->Vir6       = -5E10;
+        mcs->Vir12      = 5E10;
+        mcs->eij        = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->virij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->eijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->virijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
+        eijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
+        e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
+        e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
+    }
+    else {
+        printf("FATAL ERROR: Unknown potential.\nABORTING SIMULATION\n\n");
+        return NULL;
+    }
+    
+    printMCP(mcs);
+    
+    
+    // Number of pairs is calculated from total number of particles.
+    //  At this time, arrays are set up to enable unlimited neighbor
+    //  interactions.  In the future, these arrays could be smaller
+    //  for systems with limited neighbors.
+    mcs->numPairs   = ((mcs->N-1)*mcs->N)/2;
+    
+    // Set up arrays defining particles and pairs
+    mcs->r          = (double *) malloc(mcs->N*sizeof(double));
+    mcs->rij        = (double *) malloc(mcs->numPairs*sizeof(double));
+    
+    // Initialize arrays defining trial particles and pairs
+    mcs->rTrial     = (double *) malloc(mcs->N*sizeof(double));
+    mcs->rijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
+
+    // Initialize arrays used to double-check the system energy
+    rijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
+    
+    // Initialize arrays used to convert between particle identifiers, ii and jj, -
+    //  and pair identifier, ind.
+    mcs->iii        = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
+    mcs->jjj        = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
+    mcs->indind     = (unsigned long int **) malloc((mcs->N-1)*sizeof(unsigned long int *));
+    
+    
+    // If this is a restart run, read info from data files to re-initialize
+    if ( mcs->isRestart == true ) {
         
-	printMCP(mcs);
-	
-	// Initialize the "steps since last x" variables to -1 so that
-	//  when the corresponding data is written at step 0, they will
-	//  be properly averaged over 1 data point.
-        mcs->sn         = 0;
-	mcs->slcp       = -1; 
-	mcs->sltp       = -1;
+        // Open output files
+        mcs->cf = fopen("config.dat.mcs","r+");
+        mcs->tf = fopen("thermo.dat.mcs","r+");
+        mcs->rhof = fopen("rho.dat.mcs","r+");
+        
+        // Find last configuration in config.dat.mcs.
+        // Read the last step number, and the particle positions at that point.
+        //mcs->sn         = 0;
+        fseek(mcs->cf,0,SEEK_SET);
+        int c;
+        
+        fseek(mcs->cf,-2,SEEK_END);
+        bool doneReading = false;
+        char *sp = NULL;
+        unsigned int lineSize = 100;
+        char line1[lineSize],line2[lineSize];
+        bool lineFound,stepFound,completeConfig=false;
+        int nc,linesBelow=-2,npexp=0;
+        ii = 0;
+        
+        // Read config file from end movng upward.
+        // The string 'Step' is used as a delimiter to indicate
+        // separation of configurations from different step numbers.
+        // The number on the line above 'Step' indicates the number
+        // of particles.
+        // Continue looping until a step with a complete configuration
+        // (number of lines in the configuration matches the number of
+        // particles) is found.
+        while ( !completeConfig ) {
+            stepFound = false;
+            
+            // Loop backwards over lines until 'Step' is found
+            while ( !stepFound ) {
+                linesBelow++;
+                lineFound = false;
+                strncpy(line2,line1,lineSize);
+                strncpy(line1,"",lineSize);
+                // printf("lineFound = %d\n",lineFound);
+                nc = 0;
+                // printf("nc = %d\n",nc);
+                
+                // Loop backwards through characters until a new line
+                // is found
+                while ( !lineFound ) {
+                    nc++;
+                    // printf("nc = %d,  ",nc);
+                    c = fgetc(mcs->cf);
+                    // printf("c = %c,  ",c);
+                    if (c == '\n') {
+                        lineFound = true;
+                        fgets(line1, lineSize, mcs->cf);
+                        printf("Line found!: %s   ", line1);
+                    }
+                    else {
+                        // printf("Line NOT found!");
+                        fseek(mcs->cf,-2,SEEK_CUR);
+                    }
+                    // printf("\n");
+                }
+                
+                sp = strstr(line2, "Step");
+                if (sp) {
+                    // Move cursor 
+                    printf("Step found!!!  No. particles expected: %s  "
+                           "No. lines below: %d",line1,linesBelow);
+                    stepFound = true;
+                }
+                else {
+                    printf("Step NOT found!!!  ");
+                }
+                fseek(mcs->cf,-nc-2,SEEK_CUR);
+                printf("\n");
+            //     repeat until you have lines
+            //   find the last instance of "step" in those lines
+            
+            //   get the number of particles from the previous line
+            //   are all of the particles accounted for in lines below?
+            //   If so,
+            //     read the particles below
+            //   If not, go up N-1 lines, and repeat the whole procedure over
+            //
+            // Read from config.dat.mcs
+            }
+            sscanf(line1,"%d",&npexp);
+            if ( npexp == linesBelow ) {
+                printf("Correct number of lines below!");
+                completeConfig = true;
+            }
+            else {
+                printf("Incorrect number of lines below. line1: %d vs "
+                       "linesBelow: %d.",npexp,linesBelow);
+                linesBelow = -1;
+            }
+        }
+
+        mcs->slcp       = -1; 
+        mcs->sltp       = -1;
         mcs->slrho      = -1;
         mcs->slg        = -1;
         
         // Initialize energy and virial terms to large values
-	mcs->E          = 10E10;
-	mcs->Vir        = 10E10;
-	mcs->md         = 0;
-	
+        mcs->E          = 10E10;
+        mcs->Vir        = 10E10;
+        mcs->md         = 0;
+        
         // Initialize box size based on number of particles.
         mcs->l          = mcs->N;
 
@@ -324,29 +443,6 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->dAcc[1]    = 0;
         mcs->vAcc[0]    = 0;
         mcs->vAcc[1]    = 0;
-        
-        // Number of pairs is calculated from total number of particles.
-        //  At this time, arrays are set up to enable unlimited neighbor
-        //  interactions.  In the future, these arrays could be smaller
-        //  for systems with limited neighbors.
-        mcs->numPairs   = ((mcs->N-1)*mcs->N)/2;
-        
-        // Set up arrays defining particles and pairs
-        mcs->r          = (double *) malloc(mcs->N*sizeof(double));
-        mcs->rij        = (double *) malloc(mcs->numPairs*sizeof(double));
-        
-        // Initialize arrays defining trial particles and pairs
-        mcs->rTrial         = (double *) malloc(mcs->N*sizeof(double));
-        mcs->rijTrial       = (double *) malloc(mcs->numPairs*sizeof(double));
-
-        // Initialize arrays used to double-check the system energy
-        rijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
-	
-        // Initialize arrays used to convert between particle identifiers, ii and jj, -
-        //  and pair identifier, ind.
-        mcs->iii            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
-        mcs->jjj            = (unsigned long int *) malloc(mcs->numPairs*sizeof(double));
-        mcs->indind         = (unsigned long int **) malloc((mcs->N-1)*sizeof(unsigned long int *));
         
         ind = 0;
         for (ii = 0; ii < mcs->N-1; ii++) {
@@ -386,11 +482,6 @@ struct MCState * setupMCS(struct MCInput inp) {
         }
         
         
-        // Open output files and print headers in them.
-	mcs->cf = fopen("config.dat.mcs","w");
-        mcs->tf = fopen("thermo.dat.mcs","w");
-        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
-        mcs->rhof = fopen("rho.dat.mcs","w");
         
         // Initialize block accumulator, last-step-state, and block mean arrays
         //  for g(r) or two-particle density.  And, open the corresponding
@@ -420,17 +511,135 @@ struct MCState * setupMCS(struct MCInput inp) {
         ugrho(mcs);
         
         // Create the random number generator for the system.
-	mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
+        mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
         // Seed the random generator 
-	gsl_rng_set(mcs->rangen,mcs->seed);
-	
+        gsl_rng_set(mcs->rangen,mcs->seed);
+        
         // Flush streams to ensure everything prints before a crash
         fflush(mcs->cf);
         fflush(mcs->tf);
         fflush(stdout);
-	
-        // Return the pointer to the MCState struct that has just been setup
-	return mcs;
+    }
+    
+    
+    // Initialize the "steps since last x" variables to -1 so that
+    //  when the corresponding data is written at step 0, they will
+    //  be properly averaged over 1 data point.
+    else if ( mcs->isRestart == false ) {
+        
+        // Open output files
+        mcs->cf = fopen("config.dat.mcs","w");
+        mcs->tf = fopen("thermo.dat.mcs","w");
+        mcs->rhof = fopen("rho.dat.mcs","w");
+        
+        mcs->sn         = 0;
+        mcs->slcp       = -1; 
+        mcs->sltp       = -1;
+        mcs->slrho      = -1;
+        mcs->slg        = -1;
+        
+        // Initialize energy and virial terms to large values
+        mcs->E          = 10E10;
+        mcs->Vir        = 10E10;
+        mcs->md         = 0;
+        
+        // Initialize box size based on number of particles.
+        mcs->l          = mcs->N;
+
+        // Initialize accumulators to 0
+        mcs->lA         = 0;
+        mcs->lSA        = 0;
+        mcs->EA         = 0;
+        mcs->ESA        = 0;
+        mcs->VirA       = 0;
+        mcs->VirSA      = 0;
+
+        mcs->dAcc[0]    = 0;
+        mcs->dAcc[1]    = 0;
+        mcs->vAcc[0]    = 0;
+        mcs->vAcc[1]    = 0;
+        
+        ind = 0;
+        for (ii = 0; ii < mcs->N-1; ii++) {
+                (*mcs).indind[ii] = (unsigned long int *) malloc((mcs->N-1-ii)*sizeof(unsigned long int));
+                for (jj = ii + 1; jj < mcs->N; jj++) {
+                        dj = jj - ii - 1;
+                        mcs->indind[ii][dj] = ind;
+                        ind++;
+                }
+        }
+        
+        // Also notice that r and rij initial values are calculated here by
+        //  the particle evenly in the box.
+        ind = 0;
+        for (ii = 0; ii < mcs->N; ii++) {
+                mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
+                for (jj = ii+1; jj < mcs->N; jj++) {
+                        mcs->iii[ind] = ii;
+                        mcs->jjj[ind] = jj;
+                        ind++; 
+                }
+        }
+        
+        for (ind = 0; ind < mcs->numPairs; ind++) {
+                mcs->rij[ind] = mcs->r[mcs->jjj[ind]] - mcs->r[mcs->iii[ind]];
+        }
+        
+        // Initialize block accumulator, last-step-state, and block mean arrays
+        //  for density.
+        mcs->rhol = (int *) malloc(mcs->rhonb*sizeof(int));
+        mcs->rhoA = (int *) malloc(mcs->rhonb*sizeof(int));
+        mcs->rhoM = (double *) malloc(mcs->rhonb*sizeof(double));
+        for (ii = 0; ii < mcs->rhonb; ii++) {
+                mcs->rhol[ii] = 0;
+                mcs->rhoA[ii] = 0;
+                mcs->rhoM[ii] = 0;
+        }
+        
+        
+        // Print headers to output files.
+        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
+        
+        // Initialize block accumulator, last-step-state, and block mean arrays
+        //  for g(r) or two-particle density.  And, open the corresponding
+        //  output files.
+        mcs->gl = (int **) malloc(mcs->gns*sizeof(int *));
+        mcs->gA = (int **) malloc(mcs->gns*sizeof(int *));
+        mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
+        mcs->gf = (FILE **) malloc(mcs->gns*sizeof(FILE *));
+        for (ii = 0; ii < mcs->gns; ii++) {
+                mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+                mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+                mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
+                sprintf(gfstr,"g%lu.dat.mcs",ii);
+                mcs->gf[ii] = fopen(gfstr,"w");
+                for (jj = 0; jj < mcs->gnb; jj++) {
+                        mcs->gl[ii][jj] = 0;
+                        mcs->gA[ii][jj] = 0;
+                        mcs->gM[ii][jj] = 0;
+                } 
+        }       
+        
+        // Perform a full calculation of the current density and g(r) or two-
+        //  particle density histogram.
+        fgrho(mcs);
+        
+        // Update the density and g(r) accumulators.
+        ugrho(mcs);
+        
+        // Create the random number generator for the system.
+        mcs->rangen = gsl_rng_alloc(gsl_rng_taus2);
+        // Seed the random generator 
+        gsl_rng_set(mcs->rangen,mcs->seed);
+        
+        // Flush streams to ensure everything prints before a crash
+        fflush(mcs->cf);
+        fflush(mcs->tf);
+        fflush(stdout);
+     }
+        
+    // Return the pointer to the MCState struct that has just been setup
+    return mcs;
 }
 
 void freeMCS(struct MCState *mcs) {
