@@ -341,7 +341,10 @@ struct MCState * setupMCS(struct MCInput inp) {
         char line1[lineSize],line2[lineSize];
         bool lineFound,stepFound,completeConfig=false;
         int nc,linesBelow=-2,npexp=0;
+        unsigned long int snf; // step number found for a given configuration
         ii = 0;
+        unsigned int pn;
+        double x,y,z,bl;
         
         // Read config file from end movng upward.
         // The string 'Step' is used as a delimiter to indicate
@@ -374,7 +377,7 @@ struct MCState * setupMCS(struct MCInput inp) {
                     if (c == '\n') {
                         lineFound = true;
                         fgets(line1, lineSize, mcs->cf);
-                        printf("Line found!: %s   ", line1);
+                        // printf("Line found!: %s   ", line1);
                     }
                     else {
                         // printf("Line NOT found!");
@@ -386,15 +389,17 @@ struct MCState * setupMCS(struct MCInput inp) {
                 sp = strstr(line2, "Step");
                 if (sp) {
                     // Move cursor 
-                    printf("Step found!!!  No. particles expected: %s  "
-                           "No. lines below: %d",line1,linesBelow);
+                    // printf("Step found!!!  No. particles expected: %s  "
+                    //         "No. lines below: %d",line1,linesBelow);
                     stepFound = true;
+                    sscanf(line2,"%*s %*s %lu %*s %*s %lg",&snf,&bl);
+                    // printf("Scanning line %s and finding step no. %lu\n",line2,snf);
                 }
                 else {
-                    printf("Step NOT found!!!  ");
+                    // printf("Step NOT found!!!  ");
                 }
                 fseek(mcs->cf,-nc-2,SEEK_CUR);
-                printf("\n");
+                // printf("\n");
             //     repeat until you have lines
             //   find the last instance of "step" in those lines
             
@@ -408,14 +413,25 @@ struct MCState * setupMCS(struct MCInput inp) {
             }
             sscanf(line1,"%d",&npexp);
             if ( npexp == linesBelow ) {
-                printf("Correct number of lines below!");
+                printf("Complete configuration found for step number %lu\n",snf);
+                printf("Box length: %.8g\n",bl);
                 completeConfig = true;
             }
             else {
-                printf("Incorrect number of lines below. line1: %d vs "
-                       "linesBelow: %d.",npexp,linesBelow);
+                printf("Incomplete configuration found. line1: %d vs "
+                       "linesBelow: %d...Continuing...\n",npexp,linesBelow);
                 linesBelow = -1;
             }
+        }
+        printf("\n");
+        fgets(line1,lineSize,mcs->cf);
+        fgets(line1,lineSize,mcs->cf);
+        fgets(line1,lineSize,mcs->cf);
+        for (ii = 0; ii < linesBelow; ii++) {
+            fgets(line1,lineSize,mcs->cf);
+            sscanf(line1,"%u %lg %lg %lg",&pn,&x,&y,&z);
+            printf("Particle position string: %s",line1);
+            printf("  %u %.8g %.8g %.8g\n",pn,x,y,z);
         }
 
         mcs->slcp       = -1; 
