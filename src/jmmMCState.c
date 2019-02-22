@@ -216,6 +216,10 @@ struct MCState * setupMCS(struct MCInput inp) {
     mcs->nbn        = inp.nbn;
     mcs->numSteps   = inp.ns;
     mcs->relaxFlag  = inp.relaxFlag;
+    if ( mcs->isRestart && mcs->relaxFlag ) {
+        printf("WARNING: running restart job with volume relaxation. Make sure you\n"
+               "know what the heck you are doing!\n\n");
+    }
     mcs->cpi        = inp.cpi;
     mcs->tpi        = inp.tpi;
     mcs->eci        = inp.eci;
@@ -367,34 +371,74 @@ struct MCState * setupMCS(struct MCInput inp) {
     mcs->gM = (double **) malloc(mcs->gns*sizeof(double *));
     mcs->gf = (FILE **) malloc(mcs->gns*sizeof(FILE *));
     for (ii = 0; ii < mcs->gns; ii++) {
-            mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
-            mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
-            mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
-            sprintf(gfstr,"g%lu.dat.mcs",ii);
-            mcs->gf[ii] = fopen(gfstr,"w");
-            for (jj = 0; jj < mcs->gnb; jj++) {
-                    mcs->gl[ii][jj] = 0;
-                    mcs->gA[ii][jj] = 0;
-                    mcs->gM[ii][jj] = 0;
-            } 
-    }       
+                mcs->gl[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+                mcs->gA[ii] = (int *) malloc(mcs->gnb*sizeof(int));
+                mcs->gM[ii] = (double *) malloc(mcs->gnb*sizeof(double));
+                for (jj = 0; jj < mcs->gnb; jj++) {
+                        mcs->gl[ii][jj] = 0;
+                        mcs->gA[ii][jj] = 0;
+                        mcs->gM[ii][jj] = 0;
+                } 
+    }
     
-    // If this is a restart run, read info from data files to re-initialize
-    if ( mcs->isRestart == true ) {
+    // Initialize values for a fresh (non-restart) run
+    if ( mcs->isRestart == false ) {
         
         // Open output files
-        mcs->cf = fopen("config.dat.mcs","r+");
-        mcs->tf = fopen("thermo.dat.mcs","r+");
-        mcs->rhof = fopen("rho.dat.mcs","r+");
+        mcs->cf   = fopen("config.dat.mcs","w");
+        mcs->tf   = fopen("thermo.dat.mcs","w");
+        mcs->rhof = fopen("rho.dat.mcs","w");
         
-        // Find last complete configuration in config.dat.mcs.
-        // Read data from that configuration.
+        for (ii = 0; ii < mcs->gns; ii++) {
+                sprintf(gfstr,"g%lu.dat.mcs",ii);
+                mcs->gf[ii] = fopen(gfstr,"w");
+        }
+        
+        mcs->sn         = 0;
+        mcs->slcp       = -1; 
+        mcs->sltp       = -1;
+        mcs->slrho      = -1;
+        mcs->slg        = -1;
+        
+        // Initialize energy and virial terms to large values
+        mcs->E          = 10E10;
+        mcs->Vir        = 10E10;
+        mcs->md         = 0;
+        
+        // Initialize box size based on number of particles.
+        mcs->l          = mcs->N;
+
+        // Initial values for particle positions are calculated by
+        //  the distributing the particles evenly in the box.
+        for (ii = 0; ii < mcs->N; ii++) {
+            mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
+        }
+        
+        // Print headers to output files.
+        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
+        
+    }
+    
+    // If this is a restart run, read info from data files to re-initialize
+    else if ( mcs->isRestart == true ) {
+        
         bool lineFound,stepFound,completeConfig=false;
-        unsigned int pn,lineSize = 100;
+        unsigned int pn,lineSize = 20000;
+        unsigned long int lastrho,lastrhotmp,lastthermo,lastthermotmp,lastg[mcs->gns],lastgtmp;
         int nc,linesBelow=-2,npexp=0;
-        long int cfpp; // current file pointer position
+        long int cfpp = 0,tfpp = 0,rhofpp = 0,gfpp[mcs->gns]; // config file pointer position, etc.
         double x,y,z;
         char line1[lineSize],line2[lineSize];
+        
+        // The final time step in the configuration file drives the whole restart process
+        //   because you cannot get back on the same track unless you know the 
+        //   configuration at the point you want to re-start.
+        //
+        // *---------- RE-START CONFIGURATION FILE -----------*
+        printf("Opening file %s\n","config.dat.mcs");
+        mcs->cf = fopen("config.dat.mcs","r+");
+        // Find last complete configuration in config.dat.mcs.
+        // Read data from that configuration.
         
         // Setup the step number and particle positions from config.mcs.dat
         //   Start at the end of the file
@@ -474,6 +518,63 @@ struct MCState * setupMCS(struct MCInput inp) {
             }
         }
         
+        // *---------- RE-START DENSITY FILE -----------*
+        printf("Opening file %s\n","rho.dat.mcs");
+        mcs->rhof = fopen("rho.dat.mcs","r+");
+        printf("Cursor position: %ld\n",ftell(mcs->rhof));
+        // Put the cursor at the last step equal or prior to the step found from the config file.
+        //   Data points beyond that will be overwritten.
+        while ( fgets(line1,lineSize,mcs->rhof) ) {
+            sscanf(line1,"%lu",&lastrhotmp);
+            if ( lastrhotmp <= mcs->sn) {
+                lastrho = lastrhotmp;
+                rhofpp = ftell(mcs->rhof);
+            }
+        }
+        fseek(mcs->rhof,rhofpp,SEEK_SET);
+        printf("Last rho time point <= last complete config time point: %lu\n",lastrho);
+        mcs->slrho = mcs->sn;  // mcs->slrho is used when the density data is printed
+                               //   to properly average over the block
+        
+        
+        // *----------- RE-START g(r) FILES ------------*
+        for (ii = 0; ii < mcs->gns; ii++) {
+            sprintf(gfstr,"g%lu.dat.mcs",ii);
+            printf("Opening file %s\n",gfstr);
+            mcs->gf[ii] = fopen(gfstr,"r+");
+            // printf("Cursor position: %ld\n",ftell(mcs->gf[ii]));
+        }
+        
+        // For each g(r)-file, put the cursor at the last step equal or prior to the
+        //   step found from the config file.
+        unsigned long int lastgmin = mcs->sn;
+        for (ii = 0; ii < (unsigned long int) mcs->gns; ii++) {
+            lastgtmp = 0;
+            while ( fgets(line1,lineSize,mcs->gf[ii]) ) {
+                sscanf(line1,"%lu %*g ",&(lastgtmp));
+                if ( lastgtmp <= mcs->sn ) {
+                    lastg[ii] = lastgtmp;
+                    gfpp[ii]  = ftell(mcs->gf[ii]);
+                }
+            }
+            fseek(mcs->gf[ii],gfpp[ii],SEEK_SET);
+            if (lastg[ii] < lastgmin) lastgmin = lastg[ii];
+            printf("Last g[%lu] time point <= last complete config time point: %lu\n",ii,lastg[ii]);
+        }
+        printf("Least compatible g time point: %lu\n",lastgmin);
+        
+        
+        // *---------- RE-START THERMO FILE ------------*
+        printf("Opening file %s\n","thermo.dat.mcs");
+        mcs->tf = fopen("thermo.dat.mcs","r+");
+        while ( lastthermo <= mcs->sn ) {
+            tfpp = ftell(mcs->tf);
+            fgets(line1,lineSize,mcs->tf);
+            sscanf(line1,"%lu",&lastthermo);
+        }
+        fseek(mcs->tf,tfpp,SEEK_SET);
+        printf("Last thermo time point <= last complete config time point: %lu\n",lastthermo);
+        
         // Move the cursor back to the line stating the number of particles in the configuration.
         //   Then skip over that line, and the subsequent line (step no. and box length values)
         //   to put the cursor at the start of the line containing the position of particle 1.
@@ -497,6 +598,15 @@ struct MCState * setupMCS(struct MCInput inp) {
         }
         fseek(mcs->cf,pfcc,SEEK_SET);
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
         // Initialize the counters for "steps since last X print" to zero
         mcs->slcp       = 0; 
         mcs->sltp       = 0;
@@ -509,39 +619,6 @@ struct MCState * setupMCS(struct MCInput inp) {
         // mcs->E          = mcs->getEnergyFull();
         // mcs->Vir        = mcs->getVirialFull();
         mcs->md         = 0;
-        
-    }
-    
-    
-    else if ( mcs->isRestart == false ) {
-        
-        // Open output files
-        mcs->cf   = fopen("config.dat.mcs","w");
-        mcs->tf   = fopen("thermo.dat.mcs","w");
-        mcs->rhof = fopen("rho.dat.mcs","w");
-        
-        mcs->sn         = 0;
-        mcs->slcp       = -1; 
-        mcs->sltp       = -1;
-        mcs->slrho      = -1;
-        mcs->slg        = -1;
-        
-        // Initialize energy and virial terms to large values
-        mcs->E          = 10E10;
-        mcs->Vir        = 10E10;
-        mcs->md         = 0;
-        
-        // Initialize box size based on number of particles.
-        mcs->l          = mcs->N;
-
-        // Initial values for particle positions are calculated by
-        //  the distributing the particles evenly in the box.
-        for (ii = 0; ii < mcs->N; ii++) {
-            mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
-        }
-        
-        // Print headers to output files.
-        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
         
     }
     
