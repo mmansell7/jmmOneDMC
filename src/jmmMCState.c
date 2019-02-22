@@ -342,6 +342,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         bool lineFound,stepFound,completeConfig=false;
         int nc,linesBelow=-2,npexp=0;
         unsigned long int snf; // step number found for a given configuration
+        long int cfpp; // current file pointer position
         ii = 0;
         unsigned int pn;
         double x,y,z,bl;
@@ -363,21 +364,29 @@ struct MCState * setupMCS(struct MCInput inp) {
                 lineFound = false;
                 strncpy(line2,line1,lineSize);
                 strncpy(line1,"",lineSize);
-                // printf("lineFound = %d\n",lineFound);
+                // printf("linesBelow = %d\n",linesBelow);
                 nc = 0;
                 // printf("nc = %d\n",nc);
                 
                 // Loop backwards through characters until a new line
                 // is found
+                // printf("Current cursor position: %ld\n",ftell(mcs->cf));
                 while ( !lineFound ) {
                     nc++;
                     // printf("nc = %d,  ",nc);
-                    c = fgetc(mcs->cf);
-                    // printf("c = %c,  ",c);
-                    if (c == '\n') {
+                    if ( ftell(mcs->cf) == 0) {
                         lineFound = true;
                         fgets(line1, lineSize, mcs->cf);
                         // printf("Line found!: %s   ", line1);
+                        fseek(mcs->cf,0,SEEK_SET);
+                        cfpp = ftell(mcs->cf);
+                    }
+                    else if ( fgetc(mcs->cf) == '\n') {
+                        lineFound = true;
+                        fgets(line1, lineSize, mcs->cf);
+                        // printf("Line found!: %s   ", line1);
+                        fseek(mcs->cf,-nc-2,SEEK_CUR);
+                        cfpp = ftell(mcs->cf) + 2;
                     }
                     else {
                         // printf("Line NOT found!");
@@ -388,9 +397,8 @@ struct MCState * setupMCS(struct MCInput inp) {
                 
                 sp = strstr(line2, "Step");
                 if (sp) {
-                    // Move cursor 
-                    // printf("Step found!!!  No. particles expected: %s  "
-                    //         "No. lines below: %d",line1,linesBelow);
+                    // printf("Step found!!!  No. particles expected: %s"
+                    //        "No. lines below: %d,  ",line1,linesBelow);
                     stepFound = true;
                     sscanf(line2,"%*s %*s %lu %*s %*s %lg",&snf,&bl);
                     // printf("Scanning line %s and finding step no. %lu\n",line2,snf);
@@ -398,7 +406,6 @@ struct MCState * setupMCS(struct MCInput inp) {
                 else {
                     // printf("Step NOT found!!!  ");
                 }
-                fseek(mcs->cf,-nc-2,SEEK_CUR);
                 // printf("\n");
             //     repeat until you have lines
             //   find the last instance of "step" in those lines
@@ -418,15 +425,19 @@ struct MCState * setupMCS(struct MCInput inp) {
                 completeConfig = true;
             }
             else {
-                printf("Incomplete configuration found. line1: %d vs "
-                       "linesBelow: %d...Continuing...\n",npexp,linesBelow);
-                linesBelow = -1;
+                // printf("Incomplete configuration found. line1: %d vs "
+                //        "linesBelow: %d...Continuing...\n",npexp,linesBelow);
+                linesBelow = -2;
             }
         }
-        printf("\n");
+        fseek(mcs->cf,cfpp,SEEK_SET);
+        // printf("\n");
         fgets(line1,lineSize,mcs->cf);
+        // printf("Line 1:: %s",line1);
         fgets(line1,lineSize,mcs->cf);
-        fgets(line1,lineSize,mcs->cf);
+        // printf("Line 2:: %s",line1);
+        // fgets(line1,lineSize,mcs->cf);
+        // printf("Line 3:: %s",line1);
         for (ii = 0; ii < linesBelow; ii++) {
             fgets(line1,lineSize,mcs->cf);
             sscanf(line1,"%u %lg %lg %lg",&pn,&x,&y,&z);
@@ -434,10 +445,18 @@ struct MCState * setupMCS(struct MCInput inp) {
             printf("  %u %.8g %.8g %.8g\n",pn,x,y,z);
         }
 
-        mcs->slcp       = -1; 
-        mcs->sltp       = -1;
-        mcs->slrho      = -1;
-        mcs->slg        = -1;
+        // Save current position of file pointer
+        // Overwrite any subsequent data with whitespace
+        // Move pointer back to its previous position at the
+        //   end of the last complete config
+        long int pfcc = ftell(mcs->cf); // position of (end of) final complete config
+        fputs("aaa\n",mcs->cf);
+        fputs("bbb\n",mcs->cf);
+
+        mcs->slcp       = 0; 
+        mcs->sltp       = 0;
+        mcs->slrho      = 0;
+        mcs->slg        = 0;
         
         // Initialize energy and virial terms to large values
         mcs->E          = 10E10;
