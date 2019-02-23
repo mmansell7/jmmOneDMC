@@ -97,6 +97,7 @@ struct MCState {
   double lSA;                      // l^2 accumulator
   double EA;                       // E accumulator
   double ESA;                      // E^2 accumulator
+  double lEA;                      // l*E accumulator
   double VirA;                     // Vir accumulator
   double VirSA;                    // Vir^2 accumulator
   double rbw;                      // rho(r) bin width
@@ -344,6 +345,7 @@ struct MCState * setupMCS(struct MCInput inp) {
     mcs->lSA        = 0;
     mcs->EA         = 0;
     mcs->ESA        = 0;
+    mcs->lEA        = 0;
     mcs->VirA       = 0;
     mcs->VirSA      = 0;
 
@@ -415,7 +417,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         }
         
         // Print headers to output files.
-        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2\n");
+        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     l*E      Virial  Virial^2\n");
         
     }
     
@@ -1659,7 +1661,7 @@ int isMaxDVAdjust(struct MCState *mcs) {
 
 // Print thermodynamic properties, averaged over thermo block
 int printThermo(struct MCState *mcs) {
-	double lM,lSM,EM,ESM,VirM,VirSM;
+	double lM,lSM,EM,ESM,lEM,VirM,VirSM;
 	unsigned long int ss;
 
 	ss = mcs->sn - mcs->sltp;
@@ -1668,10 +1670,11 @@ int printThermo(struct MCState *mcs) {
 	lSM      = mcs->lSA/ss;
 	EM       = mcs->EA/ss;
 	ESM      = mcs->ESA/ss;
+        lEM      = mcs->lEA/ss;
 	VirM     = mcs->VirA/ss;
 	VirSM    = mcs->VirSA/ss;
 	
-	fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,VirM,VirSM);
+	fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,lEM,VirM,VirSM);
 	fflush(mcs->tf);
         printf("%lu  %.8G  %.8G  %.8G\n",mcs->sn,mcs->E,mcs->l,mcs->Vir);
         fflush(stdout);
@@ -1679,6 +1682,7 @@ int printThermo(struct MCState *mcs) {
 	mcs->lSA    = 0;
 	mcs->EA     = 0;
 	mcs->ESA    = 0;
+        mcs->lEA    = 0;
 	mcs->VirA   = 0;
 	mcs->VirSA  = 0;
 	mcs->sltp   = mcs->sn;
@@ -1694,6 +1698,7 @@ int updateThermo(struct MCState *mcs) {
     mcs->lSA = mcs->lSA + mcs->l*mcs->l; 
     mcs->EA = mcs->EA + mcs->E; 
     mcs->ESA = mcs->ESA + mcs->E*mcs->E; 
+    mcs->lEA = mcs->lEA + mcs->l*mcs->E; 
     mcs->VirA = mcs->VirA + mcs->Vir; 
     mcs->VirSA = mcs->VirSA + mcs->Vir*mcs->Vir;
 
