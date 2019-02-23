@@ -74,35 +74,36 @@ int main (int argc, char *argv[]) {
     
     // The following "sections" are each executed by a single thread, in 
     //  parallel with the other sections.
-    #pragma omp sections
-    {
-        #pragma omp section
+    if ( !getRestartFlag(mcs) ) {
+        #pragma omp sections
         {
-        // Print coordinates at current step to the configuration file.
-        printCoords(mcs);
-        }
-        
-        #pragma omp section
-        {
-        // Print density bin populations at current step to the rho file.
-        printRho(mcs);
-        }
-        
-        #pragma omp section
-        {
-        // Accumulate thermodynamic parameters at step 0.  Accumulators are used to
-        //   calculate block averages at the end of each block. 
-        updateThermo(mcs);
+            #pragma omp section
+            {
+            // Print coordinates at current step to the configuration file.
+            printCoords(mcs);
+            }
+            
+            #pragma omp section
+            {
+            // Print density bin populations at current step to the rho file.
+            printRho(mcs);
+            }
+            
+            #pragma omp section
+            {
+            // Accumulate thermodynamic parameters at step 0.  Accumulators are used to
+            //   calculate block averages at the end of each block. 
+            updateThermo(mcs);
 
-        // Print step 0 thermodynamics to the thermo output file.
-        printThermo(mcs);
+            // Print step 0 thermodynamics to the thermo output file.
+            printThermo(mcs);
+            }
         }
+    
+        // Print g(r) or two-particle density bin populations to the g#.dat files.
+        //   Note that the mcs_printG function is executed by all threads in parallel.
+        printG(mcs);
     }
-    
-    // Print g(r) or two-particle density bin populations to the g#.dat files.
-    //   Note that the mcs_printG function is executed by all threads in parallel.
-    printG(mcs);
-    
     
     // ############################### MC LOOP #######################################
     

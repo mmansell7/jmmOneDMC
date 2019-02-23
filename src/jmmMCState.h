@@ -39,7 +39,7 @@ int relaxVolume(struct MCState *mcs);
 unsigned long int getStepNum(struct MCState *mcs);
 double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl);
 int moveVolume(struct MCState *mcs,double l);
-
+bool getRestartFlag(struct MCState *mcs);
 
 struct MCInput {
 

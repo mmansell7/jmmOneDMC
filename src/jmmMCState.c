@@ -518,10 +518,35 @@ struct MCState * setupMCS(struct MCInput inp) {
             }
         }
         
+        // Move the cursor back to the line stating the number of particles in the configuration.
+        //   Then skip over that line, and the subsequent line (step no. and box length values)
+        //   to put the cursor at the start of the line containing the position of particle 1.
+        fseek(mcs->cf,cfpp,SEEK_SET);
+        fgets(line1,lineSize,mcs->cf);
+        fgets(line1,lineSize,mcs->cf);
+        
+        // Initialize particle positions from the identified last complete configuration.
+        for (ii = 0; ii < mcs->N; ii++) {
+            fgets(line1,lineSize,mcs->cf);
+            sscanf(line1,"%u %lg %lg %lg",&pn,&x,&y,&z);
+            mcs->r[ii]        = z;
+        }
+        
+        // Overwrite any subsequent incomplete configuration data with whitespace, and
+        //   move the pointer back to its previous position at the end of the last 
+        //   complete config
+        long int pfcc = ftell(mcs->cf); // position of (end of) final complete config
+        for (ii = 0; ii < mcs->N; ii++ ) {
+            fprintf(mcs->cf,"\n");
+        }
+        fseek(mcs->cf,pfcc,SEEK_SET);
+        mcs->slcp = mcs->sn; 
+
+
+
         // *---------- RE-START DENSITY FILE -----------*
         printf("Opening file %s\n","rho.dat.mcs");
         mcs->rhof = fopen("rho.dat.mcs","r+");
-        printf("Cursor position: %ld\n",ftell(mcs->rhof));
         // Put the cursor at the last step equal or prior to the step found from the config file.
         //   Data points beyond that will be overwritten.
         while ( fgets(line1,lineSize,mcs->rhof) ) {
@@ -532,7 +557,8 @@ struct MCState * setupMCS(struct MCInput inp) {
             }
         }
         fseek(mcs->rhof,rhofpp,SEEK_SET);
-        printf("Last rho time point <= last complete config time point: %lu\n",lastrho);
+        printf("Last rho time point <= last complete config time point: %lu\n"
+               "  Overwriting density data beyond this point.\n",lastrho);
         mcs->slrho = mcs->sn;  // mcs->slrho is used when the density data is printed
                                //   to properly average over the block
         
@@ -561,7 +587,10 @@ struct MCState * setupMCS(struct MCInput inp) {
             if (lastg[ii] < lastgmin) lastgmin = lastg[ii];
             printf("Last g[%lu] time point <= last complete config time point: %lu\n",ii,lastg[ii]);
         }
-        printf("Least compatible g time point: %lu\n",lastgmin);
+        mcs->slg = mcs->sn;  // mcs->slg is used when the density data is printed
+                             //   to properly average over the block
+        printf("Least compatible g time point: %lu\n"
+               "  Overwriting g(r) data beyond this point.\n",lastgmin);
         
         
         // *---------- RE-START THERMO FILE ------------*
@@ -573,51 +602,14 @@ struct MCState * setupMCS(struct MCInput inp) {
             sscanf(line1,"%lu",&lastthermo);
         }
         fseek(mcs->tf,tfpp,SEEK_SET);
-        printf("Last thermo time point <= last complete config time point: %lu\n",lastthermo);
+        printf("Last thermo time point <= last complete config time point: %lu\n"
+               "  Overwriting thermo data beyond this point.\n",lastthermo);
+        mcs->sltp = mcs->sn;
         
-        // Move the cursor back to the line stating the number of particles in the configuration.
-        //   Then skip over that line, and the subsequent line (step no. and box length values)
-        //   to put the cursor at the start of the line containing the position of particle 1.
-        fseek(mcs->cf,cfpp,SEEK_SET);
-        fgets(line1,lineSize,mcs->cf);
-        fgets(line1,lineSize,mcs->cf);
-        
-        // Initialize particle positions from the identified last complete configuration.
-        for (ii = 0; ii < mcs->N; ii++) {
-            fgets(line1,lineSize,mcs->cf);
-            sscanf(line1,"%u %lg %lg %lg",&pn,&x,&y,&z);
-            mcs->r[ii]        = z;
-        }
-        
-        // Overwrite any subsequent incomplete configuration data with whitespace, and
-        //   move the pointer back to its previous position at the end of the last 
-        //   complete config
-        long int pfcc = ftell(mcs->cf); // position of (end of) final complete config
-        for (ii = 0; ii < mcs->N; ii++ ) {
-            fprintf(mcs->cf,"\n");
-        }
-        fseek(mcs->cf,pfcc,SEEK_SET);
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        // Initialize the counters for "steps since last X print" to zero
-        mcs->slcp       = 0; 
-        mcs->sltp       = 0;
-        mcs->slrho      = 0;
-        mcs->slg        = 0;
         
         // Initialize energy and virial terms from (re-)starting configuration.
         mcs->E          = 10.0E10;
         mcs->Vir        = 10.0E10;
-        // mcs->E          = mcs->getEnergyFull();
-        // mcs->Vir        = mcs->getVirialFull();
         mcs->md         = 0;
         
     }
@@ -2095,6 +2087,10 @@ int qagrho(struct MCState *mcs) {
 
 int getRelaxFlag(struct MCState *mcs) {
     return mcs->relaxFlag;
+}
+
+bool getRestartFlag(struct MCState *mcs) {
+    return mcs->isRestart;
 }
 
 // Relax volume to the minimum energy point, when considering the external
