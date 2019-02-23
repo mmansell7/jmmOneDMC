@@ -417,7 +417,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         }
         
         // Print headers to output files.
-        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     l*E      Virial  Virial^2\n");
+        fprintf(mcs->tf,"Step  Energy  Energy^2    l     l^2     Virial  Virial^2   l*E\n");
         
     }
     
@@ -1674,7 +1674,7 @@ int printThermo(struct MCState *mcs) {
 	VirM     = mcs->VirA/ss;
 	VirSM    = mcs->VirSA/ss;
 	
-	fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,lEM,VirM,VirSM);
+	fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,VirM,VirSM,lEM);
 	fflush(mcs->tf);
         printf("%lu  %.8G  %.8G  %.8G\n",mcs->sn,mcs->E,mcs->l,mcs->Vir);
         fflush(stdout);
