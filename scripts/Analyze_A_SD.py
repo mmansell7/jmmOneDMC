@@ -66,7 +66,8 @@ print("printInterval: " + str(printInterval))
 #print("Analyzing runs in " + dir + " using " + str(eqSteps)  + " equilibration steps." + "\n")
 print("Analyzing runs in " + dir + "." + "\n")
 
-thermoFiles = glob.glob(dir + "*/*thermo*")
+#thermoFiles = glob.glob(dir + "*/*thermo*")
+thermoFiles = glob.glob(dir + "*P0.1*/*thermo*")
 print("Found files: ")
 for tf in thermoFiles:
 	print(tf)
