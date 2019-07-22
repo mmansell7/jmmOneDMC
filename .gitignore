@@ -30,3 +30,4 @@ src/INPUT_smalltest
 src/INPUT
 scripts/*.txt
 src/restartExample
+*.png
