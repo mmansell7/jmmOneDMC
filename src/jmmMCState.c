@@ -18,7 +18,7 @@ static double EUp,EDown,h,dlEstimate,lTryMin,lTryMax,b;
 static double *rijTest,*eijTest,*e6ijTest,*e12ijTest;
 static long int gs11,gs12;
 double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
-static double params[2];
+static double params[10];
 
 // IMPORTANT. Define the MCState struct. This struct holds the state of the system
 //  and is what other functions operate on in order to read or modify that state.
@@ -163,7 +163,8 @@ struct MCState {
   
   
   char potStr[20];                 // String defining the potential type
-  void (*phi)(double *rij,     // Pointer to the
+  double potCutOff;
+  void (*phi)(double *rij,double cutOff,         // Pointer to the
       void *params, double phi[6]);//   interparticle potential function
   int (*qad)(struct MCState *,     // Pointer a potential-specific, quicker,
      unsigned long int *nm,double *d);  // displacement trial function
@@ -181,6 +182,7 @@ int printMCP(struct MCState *mcs1) {
 	printf("Printing Monte Carlo parameters...\n");
         printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
 	printf("Potential: %s\n",mcs1->potStr);
+        printf("Potential cut-off: %.5G\n",mcs1->potCutOff);
         if ( mcs1->nbn > 0 ) {
 		printf("Number of neighbors with which each particle can interact: %u\n",mcs1->nbn);
 	}
@@ -239,9 +241,39 @@ struct MCState * setupMCS(struct MCInput inp) {
     mcs->gbw        = inp.gbw;
     mcs->gns        = inp.gns;
     mcs->seed       = inp.seed;
+    mcs->potCutOff  = inp.potCutOff;
     strncpy(mcs->potStr,inp.potStr,20);
     if ( strncmp(mcs->potStr,"LJ",10) == 0 ) {
         mcs->phi        = &phiLJ;
+        mcs->qad        = &qad2;
+        if ( mcs->nbn < 0 ) {
+            mcs->qav    = &qavLJ;
+        }
+        else {
+            mcs->qav    = &fav;
+        }
+        mcs->E6         = -5E10;
+        mcs->E12        = 5E10;
+        mcs->Vir6       = -5E10;
+        mcs->Vir12      = 5E10;
+        mcs->eij        = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ij       = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->virij      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ij    = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ij     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->eijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e12ijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->e6ijTrial      = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->virijTrial     = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir12ijTrial   = (double *) malloc(mcs->numPairs*sizeof(double));
+        mcs->vir6ijTrial    = (double *) malloc(mcs->numPairs*sizeof(double));
+        eijTest         = (double *) malloc(mcs->numPairs*sizeof(double));
+        e12ijTest       = (double *) malloc(mcs->numPairs*sizeof(double));
+        e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
+    }
+    else if ( strncmp(mcs->potStr,"LJcut",10) == 0 ) {
+        mcs->phi        = &phiLJcut;
         mcs->qad        = &qad2;
         if ( mcs->nbn < 0 ) {
             mcs->qav    = &qavLJ;
@@ -762,7 +794,7 @@ int fad(struct MCState *mcs,unsigned long int *nm,double *d) {
 			else {
 				rij1          = mcs->rijTrial[ind];
 				
-				mcs->phi(&rij1,params,phiij);
+				mcs->phi(&rij1,mcs->potCutOff,params,phiij);
 				mcs->eijTrial[ind]     = phiij[0];
 				mcs->e12ijTrial[ind]   = phiij[2];
                                 mcs->e6ijTrial[ind]    = phiij[4];
@@ -1046,7 +1078,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			else {
 				rij1 = mcs->rijTrial[ind];
 				
-				mcs->phi(&rij1,params,phiij);
+				mcs->phi(&rij1,mcs->potCutOff,params,phiij);
 				mcs->eijTrial[ind]     = phiij[0];
 				mcs->e12ijTrial[ind]   = phiij[2];
                                 mcs->e6ijTrial[ind]    = phiij[4];
@@ -1125,7 +1157,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 			else {
 				rij1 = mcs->rijTrial[ind];
 				
-				mcs->phi(&rij1,params,phiij);
+				mcs->phi(&rij1,mcs->potCutOff,params,phiij);
 				mcs->eijTrial[ind]     = phiij[0];
 				mcs->e12ijTrial[ind]   = phiij[2];
                                 mcs->e6ijTrial[ind]    = phiij[4];
@@ -1480,7 +1512,7 @@ int qavLJ(struct MCState *mcs) {
 			ii = mcs->iii[ind];
 			jj = mcs->jjj[ind];
 			mcs->rij[ind]     = lRat1*mcs->rij[ind];
-      			mcs->phi(&(mcs->rij[ind]),&params,phiij);
+      			mcs->phi(&(mcs->rij[ind]),mcs->potCutOff,&params,phiij);
 	      		mcs->eij[ind] = phiij[0];
       			mcs->e12ij[ind] = phiij[2];
       			mcs->e6ij[ind] = phiij[4];
@@ -1730,7 +1762,7 @@ int ECheck(struct MCState *mcs) {
     else {
       rij1 = rijTest[iq];
       
-      mcs->phi(&rij1,params,phiij);
+      mcs->phi(&rij1,mcs->potCutOff,params,phiij);
       eijTest[iq] = phiij[0];
       e12ijTest[iq] = phiij[2];
       e6ijTest[iq] = phiij[4];
@@ -1782,7 +1814,7 @@ int ECheck(struct MCState *mcs) {
     else {
       mcs->rij[ind]          = mcs->r[jj] - mcs->r[ii];
 			
-      mcs->phi(&(mcs->rij[ind]),params,phiij);
+      mcs->phi(&(mcs->rij[ind]),mcs->potCutOff,params,phiij);
       mcs->eij[ind]      = phiij[0];
       mcs->e12ij[ind]    = phiij[2];
       mcs->e6ij[ind]     = phiij[4];
@@ -1933,7 +1965,7 @@ int fav(struct MCState *mcs) {
 		else {
 			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
 			
-			mcs->phi(&rij1a,params,phiij);
+			mcs->phi(&rij1a,mcs->potCutOff,params,phiij);
 			mcs->eijTrial[ind]      = phiij[0];
 			mcs->e12ijTrial[ind]    = phiij[2];
 			mcs->e6ijTrial[ind]     = phiij[4];
@@ -2519,7 +2551,7 @@ double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl) {
 		else {
 			rij1a          = mcs->rTrial[jj] - mcs->rTrial[ii];
 			
-			mcs->phi(&rij1a,params,phiij);
+			mcs->phi(&rij1a,mcs->potCutOff,params,phiij);
 			mcs->eijTrial[ind]      = phiij[0];
 			mcs->e12ijTrial[ind]    = phiij[2];
 			mcs->e6ijTrial[ind]     = phiij[4];
@@ -2579,7 +2611,7 @@ int moveVolume(struct MCState *mcs,double l) {
 		else {
 			mcs->rij[ind]        = mcs->r[jj] - mcs->r[ii];
 			
-			mcs->phi(&(mcs->rij[ind]),params,phiij);
+			mcs->phi(&(mcs->rij[ind]),mcs->potCutOff,params,phiij);
 			mcs->eij[ind]      = phiij[0];
 			mcs->e12ij[ind]    = phiij[2];
 			mcs->e6ij[ind]     = phiij[4];

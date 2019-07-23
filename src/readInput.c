@@ -37,226 +37,160 @@ struct MCInput readInput(char *fstr) {
     FILE *infile = fopen(fstr,"r");
     char line[100];
     const char s[8] = "[ \t\n]";
-    char *token;
-    
+    const int maxNumTokens = 20, maxTokenLength = 30;
+    char *tokens[maxNumTokens];
+    int ii, counter;
+    for (ii = 0; ii < maxNumTokens; ii++) {
+        tokens[ii] = malloc(maxTokenLength);
+    }
     
     if (infile==NULL)
     {
         printf("FATAL ERROR: INPUT not found.");
     }
    
-    while ( fgets(line,100,infile) != NULL) {
-        // get the first word from line into token
-        token = strtok(line, s);
+    while ( fgets(line,0.5*maxNumTokens*maxTokenLength,infile) != NULL) {
+        // get the first word from line into tokens[0]
         
-        if ( strncmp(token,"RESTART",10) == 0 ) {
+        counter = 0;
+        tokens[counter] = strtok(line,s);
+        while( tokens[counter] != NULL ) {
+            counter++;
+            tokens[counter] = strtok(NULL,s);
+        }
+        
+        if ( strncmp(tokens[0],"RESTART",10) == 0 ) {
+            const int caseStrNum = 3;
+            const char *falstr[] = {"FALSE","False","false"}; // List of possible potential keywords
             inp.isRestart = true;
-        }
-        
-        else if ( strncmp(token,"N",10) == 0 ) {
-            // Get the first value token
-            token = strtok(NULL, s);
-            /* walk through remaining value tokens */
-            while( token != NULL ) {
-                // strtok(NULL,delim) continues tokenizing where it last left off
-	        inp.N = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
+            for ( ii = 0; ii < caseStrNum; ii++ ) {
+                if ( strncmp(tokens[1],falstr[ii],maxTokenLength) == 0 ) {
+                    inp.isRestart = false;
+                }
             }
         }
         
-        else if ( strncmp(token,"P",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.P = (double) strtod(token,NULL);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"N",10) == 0 ) {
+	    inp.N = (unsigned long int) strtol(tokens[1],NULL,10);
+        }
+        
+        else if ( strncmp(tokens[0],"P",10) == 0 ) {
+            inp.P = (double) strtod(tokens[1],NULL);
         }
 
-        else if ( strncmp(token,"T",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.T = (double) strtod(token,NULL);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"T",10) == 0 ) {
+            inp.T = (double) strtod(tokens[1],NULL);
         }
 
-        else if ( strncmp(token,"NBN",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.nbn = (int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"NBN",10) == 0 ) {
+            inp.nbn = (int) strtol(tokens[1],NULL,10);
         }
         
-        else if ( strncmp(token,"NUMSTEPS",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.ns = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"NUMSTEPS",10) == 0 ) {
+            inp.ns = (unsigned long int) strtol(tokens[1],NULL,10);
         }
         
-        else if ( strncmp(token,"POT",10) == 0 ) {
-            char *pots[2] = {"LJ","HARMONIC"};
-            int potLen = 2, potFlag = 1, ii;
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                strncpy(inp.potStr,token,80);
-                for (ii = 0; ii < potLen; ii++) {
-                    if ( strncmp(inp.potStr,pots[ii],10) == 0 ) {
-                        potFlag = 0;
-                    }
+        else if ( strncmp(tokens[0],"POT",10) == 0 ) {
+            const int potLen = 3;
+            const char *pots[] = {"LJcut","LJ","HARMONIC"}; // List of possible potential keywords
+            int potFlag;
+            
+            strncpy(inp.potStr,tokens[1],80); // Copy up to 80 characters from the tokens[1] to inp.potStr
+              
+            // Loop through pots, confirming that the requested potential keyword is among the allowed
+            //   values, or handling the situation if the keyword is not among the accepted values.
+            potFlag = -1;
+            for (ii = 0; ii < potLen; ii++) {
+                if ( strncmp(inp.potStr,pots[ii],20) == 0 ) {
+                    potFlag = ii;
+                    break;
                 }
-                if ( potFlag == 0 ) {
-                }
-                else {
-                    printf("Unknown potential type requested (%s). Using Lennard-Jones potential.\n",token);
-                    strncpy(inp.potStr,"LJ",80);
-                }
-                token = strtok(NULL, s);
             }
+            if ( potFlag < 0 ) {
+                printf("Unknown potential type requested (%s). Using Lennard-Jones potential with no cut-off.\n",tokens[1]);
+                strncpy(inp.potStr,"LJ",80);
+            }
+            
+            inp.potCutOff = strtod(tokens[2],NULL);
         }
         
-        else if ( strncmp(token,"MAXSTEP",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.maxStep = (double) strtod(token,NULL);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"MAXSTEP",10) == 0 ) {
+            inp.maxStep = (double) strtod(tokens[1],NULL);
         }
         
-        else if ( strncmp(token,"MAXDV",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.maxdl = (double) strtod(token,NULL);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"MAXDV",10) == 0 ) {
+            inp.maxdl = (double) strtod(tokens[1],NULL);
         }
        
-        else if ( strncmp(token,"CPI",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.cpi = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"CPI",10) == 0 ) {
+            inp.cpi = (unsigned long int) strtol(tokens[1],NULL,10);
         }
        
-        else if ( strncmp(token,"TPI",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.tpi = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"TPI",10) == 0 ) {
+            inp.tpi = (unsigned long int) strtol(tokens[1],NULL,10);
         }
        
-        else if ( strncmp(token,"GPI",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.gpi = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"GPI",10) == 0 ) {
+            inp.gpi = (unsigned long int) strtol(tokens[1],NULL,10);
         }
        
-        else if ( strncmp(token,"RHOPI",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.rhopi = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"RHOPI",10) == 0 ) {
+            inp.rhopi = (unsigned long int) strtol(tokens[1],NULL,10);
         }
        
-        else if ( strncmp(token,"RBW",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.rbw = (double) strtod(token,NULL);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"RBW",10) == 0 ) {
+            inp.rbw = (double) strtod(tokens[1],NULL);
         }
        
-        else if ( strncmp(token,"RHONB",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.rhonb = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"RHONB",10) == 0 ) {
+            inp.rhonb = (unsigned long int) strtol(tokens[1],NULL,10);
         }
        
-        else if ( strncmp(token,"GBW",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.gbw = (double) strtod(token,NULL);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"GBW",10) == 0 ) {
+            inp.gbw = (double) strtod(tokens[1],NULL);
         }
        
-        else if ( strncmp(token,"GNB",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.gnb = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"GNB",10) == 0 ) {
+            inp.gnb = (unsigned long int) strtol(tokens[1],NULL,10);
         }
        
-        else if ( strncmp(token,"GSW",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.gsw = (double) strtod(token,NULL);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"GSW",10) == 0 ) {
+            inp.gsw = (double) strtod(tokens[1],NULL);
         }
        
-        else if ( strncmp(token,"GNS",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.gns = (int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"GNS",10) == 0 ) {
+            inp.gns = (int) strtol(tokens[1],NULL,10);
         }
         
-        else if ( strncmp(token,"SEED",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.seed = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"SEED",10) == 0 ) {
+            inp.seed = (unsigned long int) strtol(tokens[1],NULL,10);
         }
         
-        else if ( strncmp(token,"ENGCHECK",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.eci = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"ENGCHECK",10) == 0 ) {
+            inp.eci = (unsigned long int) strtol(tokens[1],NULL,10);
         }
         
-        else if ( strncmp(token,"DADJ",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.mdai = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"DADJ",10) == 0 ) {
+            inp.mdai = (unsigned long int) strtol(tokens[1],NULL,10);
         }
         
-        else if ( strncmp(token,"VADJ",10) == 0 ) {
-            token = strtok(NULL, s);
-            while( token != NULL ) {
-                inp.mvai = (unsigned long int) strtol(token,NULL,10);
-                token = strtok(NULL, s);
-            }
+        else if ( strncmp(tokens[0],"VADJ",10) == 0 ) {
+            inp.mvai = (unsigned long int) strtol(tokens[1],NULL,10);
         }
         
-        else if ( strncmp(token,"RELAX",10) == 0 ) {
-             inp.relaxFlag = 1;
-             token = strtok(NULL,s);
-             while( token != NULL ) {
-                 token = strtok(NULL,s);
-             }
+        else if ( strncmp(tokens[0],"RELAX",10) == 0 ) {
+            inp.relaxFlag = 1;
         }
         
         else {
-            printf("Property command %s not understood.\n",token);
+            printf("Property command %s not understood.\n",tokens[0]);
         }
 
+        // "clear" each of the tokens
+        for ( ii = 0; ii < maxNumTokens; ii++ ) {
+            strncpy(tokens[ii],"x",10);
+        }
+    
     }
     
     return inp;
@@ -276,7 +210,7 @@ int printInput(struct MCInput inp) {
         printf("NBN = No neighbor number limit.\n");
     }
     printf("NUMSTEPS = %lu\n",inp.ns);
-    printf("POT = %s\n",inp.potStr);
+    printf("POT = %s, CUTOFF = %.5G\n",inp.potStr,inp.potCutOff);
     printf("MAXSTEP = %.5G\n",inp.maxStep);
     printf("MAXDV = %.5G\n",inp.maxdl);
     printf("ENGCHECK = %lu\n",inp.eci);

@@ -15,77 +15,107 @@
 //  pressure contributions.
 
 
-void phiLJ(double *d, void *params, double phi[6]) {
-	double rij1,rij3,rij6,rij7,rij12,rij13;
-	double phitot,phi6,phi12;
-        double l;
-	double virtot,vir6,vir12;
-	//double *phi = (double *) malloc(6*sizeof(double));
-	double *p = (double *) params;
-	
-	rij1 = *d;
-	rij3 = rij1*rij1*rij1;
-	rij6 = 1/(rij3*rij3);
-	rij12 = rij6*rij6;
+void phiLJcut(double *d, double cutOff, void *params, double phi[6]) {
+    // Compute energy and pressure contributions of a single LJ pair
+    //   d is a pointer to the magnitude of the vector from particle i to particle j
+    //     in reduced LJ units
+    //   params is an array of doubles.
+    //     params[0] and params[1] are described at the top of this file
+    //     params[2] is the cut-off (reduced LJ units)
+    //   phi is an array of doubles.
+    //     phi[0]: total pair energy (LJ units)
+    //     phi[1]: total pair virial (LJ units)
+    //     phi[2]: repulsive part of the pair energy (1/rij**12, in LJ units)
+    //     phi[3]: repulsive part of the pair virial (12/rij**12, in LJ units)
+    //     phi[4]: negative of the attractive part of the pair energy (1/rij**6, in LJ units)
+    //     phi[5]: negative of the attractive part of the pair virial (6/rij**6, in LJ units)
+    double rij1,rij3,rij6,rij12;
+    double phitot,phi6,phi12;
+    double l;
+    double virtot,vir6,vir12;
+    double *p = (double *) params;
+    
+    rij1  = *d;             // Separation distance between two particles
+    rij3  = rij1*rij1*rij1; // rij**3
+    rij6  = 1/(rij3*rij3);  // rij**(-6)
+    rij12 = rij6*rij6;      // rij**(-12)
+    
+    // if rij is within the cut-off length
+    if ( rij1 <= cutOff ) {
+      phi6   = 4*rij6;          
+      phi12  = 4*rij12;
+      phitot = phi12 - phi6;
 
-	phi6 = 4*rij6;
-	phi12 = 4*rij12;
-        phitot = phi12 - phi6;
-	phi[0] = phitot;
-	phi[2] = phi12;
-        phi[4] = phi6;
-
-        if ( p[0] > 0.1 ) {
-	  l      = p[1];
-          rij7   = rij6/rij1;
-	  rij13  = rij12/rij1;
-	  
-          vir6   = 24/l*rij6;
-	  vir12  = 48/l*rij12;
-	  virtot = vir12 - vir6;
-          phi[1] = virtot;
-          //if ( isnan( virtot ) ) {
-            //printf("In pot.c: params,&params[0],&params[1] = %p,%p,%p  *params = %2.2G,%5.5G\n",params,&(params[0]),
-	    //	&(params[1]),((double *) params)[0],((double *) params)[1]);
-            //printf("params[0] = %2.2G  l =  %5.5G  rij1,rij3,rij6,rij7,rij12,rij13 = %5.5G,%5.5G,%5.5G,%5.5G,%5.5G,"
-            //       "%5.5G  vir6,vir12,virtot,phi[1] = %5.5G,%5.5G,%5.5G,%5.5G\n",params[0],l,rij1,rij3,rij6,rij7,rij12,
-            //       rij13,vir6,vir12,virtot,phi[1]);
-	    //	   fflush(stdout);
-          //}
-	  phi[3] = vir12;
-          phi[5] = vir6;
-	}
-	else {
-	  phi[1] = 0;
-	  phi[3] = 0;
-	  phi[5] = 0;
-	}
-
-	//return phi;
+      // p[0] > 0 indicates the virial contributions should be calculated
+      if ( p[0] > 0.1 ) {
+        l      = p[1];
+        vir6   = 24/l*rij6;
+        vir12  = 48/l*rij12;
+        virtot = vir12 - vir6;
+      }
+      else {
+        vir6   = 0;
+        vir12  = 0;
+        virtot = 0;
+      }
+    }
+    // if rij is beyond the cut-off length
+    else {
+      phi6   = 0;
+      phi12  = 0;
+      phitot = 0;
+      vir6   = 0;
+      vir12  = 0;
+      virtot = 0;
+    }
+   
+    phi[0] = phitot;
+    phi[2] = phi12;
+    phi[4] = phi6;
+    
+    phi[1] = virtot;
+    phi[3] = vir12;
+    phi[5] = vir6;
 }
 
 
+void phiLJ(double *d, void *params, double phi[6]) {
+    // Wrapper on phiLJcut, ensuring cut-off length is very large
+    phiLJcut(d, INFINITY, params, phi);
+}
 
-void phiHarmonic(double *d, void *params, double phi[6]) {
-    double rijm,l;
+
+void phiHarmoniccut(double *d, double cutOff, void *params, double phi[6]) {
+    double rijm; // Difference of rij from the minimum-energy separation
+    double l;
     //double *phi = (double *) malloc(6*sizeof(double));
     double *p = (double *) params;
     
-    if ( *d >= 0 ) {
+    if ( *d <= 0 ) {
+        phi[0] = 10E10;
+        phi[1] = 10E10;
+    }
+    else if ( *d < cutOff ) {
         rijm = *d-1.0;
         phi[0] = rijm*rijm;
-    }
-    else {
-        phi[0] = 10E10;
         if ( p[0] == 1 ) {
             l = p[1];
-            phi[1] = (2/l)*(*d)*rijm;
         }
+        phi[1] = (2/l)*(*d)*rijm;
+    }
+    else {
+        phi[0] = 0;
+        phi[1] = 0;
     }
     
     //return phi;
 }
 
+
+void phiHarmonic(double *d, void *params, double phi[6]) {
+    // Wrapper to phiHarmoniccut
+    phiHarmoniccut(d, INFINITY, params, phi);
+}
 
 
 

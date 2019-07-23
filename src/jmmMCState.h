@@ -61,6 +61,7 @@ struct MCInput {
   unsigned long int seed;
   double maxStep;
   double maxdl;
+  double potCutOff;
   char potStr[80];
   double rbw;
   double gsw;
