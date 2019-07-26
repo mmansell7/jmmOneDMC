@@ -37,19 +37,16 @@ struct MCInput readInput(char *fstr) {
     FILE *infile = fopen(fstr,"r");
     char line[100];
     const char s[8] = "[ \t\n]";
-    const int maxNumTokens = 20, maxTokenLength = 30;
+    const int maxNumTokens = 20;
     char *tokens[maxNumTokens];
     int ii, counter;
-    for (ii = 0; ii < maxNumTokens; ii++) {
-        tokens[ii] = malloc(maxTokenLength);
-    }
     
     if (infile==NULL)
     {
         printf("FATAL ERROR: INPUT not found.");
     }
    
-    while ( fgets(line,0.5*maxNumTokens*maxTokenLength,infile) != NULL) {
+    while ( fgets(line,200,infile) != NULL) {
         // get the first word from line into tokens[0]
         
         counter = 0;
@@ -64,7 +61,7 @@ struct MCInput readInput(char *fstr) {
             const char *falstr[] = {"FALSE","False","false"}; // List of possible potential keywords
             inp.isRestart = true;
             for ( ii = 0; ii < caseStrNum; ii++ ) {
-                if ( strncmp(tokens[1],falstr[ii],maxTokenLength) == 0 ) {
+                if ( strncmp(tokens[1],falstr[ii],20) == 0 ) {
                     inp.isRestart = false;
                 }
             }
@@ -186,11 +183,6 @@ struct MCInput readInput(char *fstr) {
             printf("Property command %s not understood.\n",tokens[0]);
         }
 
-        // "clear" each of the tokens
-        for ( ii = 0; ii < maxNumTokens; ii++ ) {
-            strncpy(tokens[ii],"x",10);
-        }
-    
     }
     
     return inp;

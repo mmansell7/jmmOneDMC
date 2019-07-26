@@ -21,8 +21,7 @@
 #include "pot.h"
 
 char *verStr = "1.1.0";
-char *verDateStr = "02/05/2018";
-
+char *verDateStr = "07/23/2019";
 
 
 int main (int argc, char *argv[]) {

@@ -275,12 +275,7 @@ struct MCState * setupMCS(struct MCInput inp) {
     else if ( strncmp(mcs->potStr,"LJcut",10) == 0 ) {
         mcs->phi        = &phiLJcut;
         mcs->qad        = &qad2;
-        if ( mcs->nbn < 0 ) {
-            mcs->qav    = &qavLJ;
-        }
-        else {
-            mcs->qav    = &fav;
-        }
+        mcs->qav        = &fav;
         mcs->E6         = -5E10;
         mcs->E12        = 5E10;
         mcs->Vir6       = -5E10;
