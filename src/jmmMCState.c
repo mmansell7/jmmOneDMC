@@ -448,7 +448,7 @@ struct MCState * setupMCS(struct MCInput inp) {
         }
         
         // Print headers to output files.
-        fprintf(mcs->tf,"Step     E      E2    L     L2     LE     rho     rho2    Virial  Virial2\n");
+        fprintf(mcs->tf,"Step     Econf  Econf2   L     L2     LEconf  rho     rho2    Virial  Virial2\n");
         
     }
     
