@@ -173,9 +173,10 @@ for ii in thermoFiles:
         alphaP = 1/T/T/eaL*( (eaLE - eaL*eaE) + P*(eaLSq - eaL*eaL) )
         gammaV = alphaP/betaT
         betaS  = betaT - alphaP*alphaP*T*eaL/cp
+        muJT   = eaL/cp*(alphaP*T - 1.0)
 
-        print('Shapes (eaE,eaESq,eaL,eaLSq,eaLE,cp,thermo_data_block[:,0]: ' + str(eaE.shape) + ', ' + str(eaESq.shape) + ', ' 
-               + str(eaL.shape) + ', ' + str(eaLSq.shape) + ', ' + str(eaLE.shape) + ', ' + str(cp.shape) + ', ' + str(thermo_data_block[:,0].shape))
+        print('Shapes (eaE,eaESq,eaL,eaLSq,eaLE,cp,muJT,thermo_data_block[:,0]: ' + str(eaE.shape) + ', ' + str(eaESq.shape) + ', ' 
+               + str(eaL.shape) + ', ' + str(eaLSq.shape) + ', ' + str(eaLE.shape) + ', ' + str(cp.shape) + ', ' + str(muJT.shape) + ', ' + str(thermo_data_block[:,0].shape))
 	#for num in range(np.size(eaL)):
 		#print("SampleNumber: " + str(num) + " rawSample: " + str(thermo_data_block[num,0]) + "L,L2,betaT: " + str(eaL[num]) + "," + str(eaLSq[num]) + "," + str(betaT[num]) )
         
@@ -298,6 +299,15 @@ for ii in thermoFiles:
 	plt.xlabel(r'Step Number',fontsize=18)
 	plt.ylabel(r'$\gamma_{V,conf}$',fontsize=18)
 	plt.savefig('MeanGammaV' + str(P) + '_T' + str(T) + '_N' + Nstr + '.png',dpi='figure')
+	plt.close()
+        
+	plt.scatter(thermo_data_block[LEstartBlock:,0],muJT[LEstartBlock:],s=ms)
+	fig = plt.gcf()
+	fig.set_dpi(200)
+	plt.title('P: ' + str(P) + '  T: ' + str(T),fontsize=18)
+	plt.xlabel(r'Step Number',fontsize=18)
+	plt.ylabel(r'$\mu_{JT}$',fontsize=18)
+	plt.savefig('MeanMuJT' + str(P) + '_T' + str(T) + '_N' + Nstr + '.png',dpi='figure')
 	plt.close()
         
 #summaryFile.close()
