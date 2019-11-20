@@ -32,3 +32,4 @@ src/INPUT
 scripts/*.txt
 src/restartExample
 *.png
+test/
