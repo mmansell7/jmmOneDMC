@@ -10,6 +10,7 @@ data/
 jmmOneDMC
 scripts/errors.*
 scripts/output.*
+scripts/RunJobs_LJcut.bash
 *.o
 scripts/*.png
 src/INPUT
