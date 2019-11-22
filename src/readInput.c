@@ -47,6 +47,9 @@ struct MCInput readInput(char *fstr) {
         printf("FATAL ERROR: INPUT not found.");
     }
    
+    // Default input values
+    strncpy(inp.ensembleStr,"NPT",80);
+
     while ( fgets(line,200,infile) != NULL) {
         // get the first word from line into tokens[0]
         
