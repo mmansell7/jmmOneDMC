@@ -660,7 +660,6 @@ void freeMCS(struct MCState *mcs) {
 	free(mcs->rij);
 	free(mcs->rTrial);
 	free(mcs->rijTrial);
-	free(mcs->indind[ii]);
         for (ii = 0; ii < mcs->N-1; ii++) {
                 free(mcs->indind[ii]);
         }
