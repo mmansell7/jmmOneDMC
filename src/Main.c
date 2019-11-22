@@ -3,7 +3,7 @@
  Name        : Main.c
  Author      : Matt Mansell, NC State University, Dept. of Chemical &
                  Biomolecular Engineering
- Version     : 0.0.1
+ Version     : 0.0.2
  Copyright   : Your copyright notice
  Description : Main function for One-Dimensional NPT Simulations
  ============================================================================
@@ -20,8 +20,8 @@
 #include "readInput.h"
 #include "pot.h"
 
-char *verStr = "1.1.0";
-char *verDateStr = "07/23/2019";
+char *verStr = "0.0.2";
+char *verDateStr = "11/23/2019";
 
 
 int main (int argc, char *argv[]) {
