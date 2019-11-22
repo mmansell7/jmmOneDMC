@@ -63,6 +63,7 @@ struct MCInput {
   double maxdl;
   double potCutOff;
   char potStr[80];
+  char ensembleStr[80];
   double rbw;
   double gsw;
   double gbw;
