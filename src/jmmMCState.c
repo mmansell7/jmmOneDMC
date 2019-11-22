@@ -168,6 +168,9 @@ struct MCState {
   double potCutOff;
   void (*phi)(double *rij,double cutOff,         // Pointer to the
       void *params, double phi[6]);//   interparticle potential function
+  
+  char ensembleStr[80];            // String defining the ensemble
+  
   int (*qad)(struct MCState *,     // Pointer a potential-specific, quicker,
      unsigned long int *nm,double *d);  // displacement trial function
   int (*qav)(struct MCState *);    // Pointer to a potential-specific, quicker,
@@ -182,8 +185,17 @@ int printMCP(struct MCState *mcs1) {
             printf("*** THIS IS A RESTART RUN ***\n");
         }
 	printf("Printing Monte Carlo parameters...\n");
-        printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
-	printf("Potential: %s\n",mcs1->potStr);
+        printf("Ensemble: %s\n",mcs1->ensembleStr);
+        if ( strncmp(mcs1->ensembleStr,"NPT",10) == 0 ) {
+            printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
+	}
+        else if ( strncmp(mcs1->ensembleStr,"NLT",10) == 0 ) {
+            printf("N: %lu\nL: %.5G\nT: %.5G\n",mcs1->N,mcs1->L,mcs1->T);
+        }
+        else {
+            print("Unknown ensemble!\n");
+        }
+        printf("Potential: %s\n",mcs1->potStr);
         printf("Potential cut-off: %.5G\n",mcs1->potCutOff);
         if ( mcs1->nbn > 0 ) {
 		printf("Number of neighbors with which each particle can interact: %u\n",mcs1->nbn);
