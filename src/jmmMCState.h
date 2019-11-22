@@ -45,7 +45,9 @@ struct MCInput {
 
   bool isRestart;
   unsigned long int N;
+  unsigned long int numTrialTypes;
   double P;
+  double L;
   double T;
   unsigned long int ns;
   int relaxFlag;

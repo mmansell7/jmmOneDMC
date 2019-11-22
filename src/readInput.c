@@ -79,6 +79,10 @@ struct MCInput readInput(char *fstr) {
             inp.P = (double) strtod(tokens[1],NULL);
         }
 
+        else if ( strncmp(tokens[0],"L",10) == 0 ) {
+            inp.L = (double) strtod(tokens[1],NULL);
+        }
+
         else if ( strncmp(tokens[0],"T",10) == 0 ) {
             inp.T = (double) strtod(tokens[1],NULL);
         }
@@ -208,7 +212,6 @@ struct MCInput readInput(char *fstr) {
                           "ensemble.\n",tokens[1]);
                 strncpy(inp.ensembleStr,"NPT",80);
             }
-            
         }
         
         else {
@@ -225,7 +228,12 @@ struct MCInput readInput(char *fstr) {
 int printInput(struct MCInput inp) {
 
     printf("N = %lu\n",inp.N);
-    printf("P = %.5G\n",inp.P);
+    if ( strncmp(inp.ensembleStr,"NPT",80) == 0) {
+        printf("P = %.5G\n",inp.P);
+    }
+    else if ( strncmp(inp.ensembleStr,"NLT",80) == 0 ) {
+        printf("L = %.5G\n",inp.L);
+    }
     printf("T = %.5G\n",inp.T);
     if ( inp.nbn > 0 ) {
         printf("NBN = %d\n",inp.nbn);

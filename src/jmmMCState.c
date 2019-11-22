@@ -34,6 +34,7 @@ struct MCState {
                                    //   false: not restart
   
   unsigned long int N;             // Number of particles
+  unsigned long int numTrialTypes; // Number of possible trial types
   int nbn;                         // Number of neighbors with which each particle can
                                    //   interact.  -1 for no limit.
   unsigned long int sn;            // Step number
@@ -228,15 +229,9 @@ struct MCState * setupMCS(struct MCInput inp) {
     // Initialize parameters provided by input struct.
     mcs->isRestart  = inp.isRestart;
     mcs->N          = inp.N;
-    mcs->P          = inp.P;
     mcs->T          = inp.T;
     mcs->nbn        = inp.nbn;
     mcs->numSteps   = inp.ns;
-    mcs->relaxFlag  = inp.relaxFlag;
-    if ( mcs->isRestart && mcs->relaxFlag ) {
-        printf("WARNING: running restart job with volume relaxation. Make sure you\n"
-               "know what the heck you are doing!\n\n");
-    }
     mcs->cpi        = inp.cpi;
     mcs->tpi        = inp.tpi;
     mcs->eci        = inp.eci;
@@ -342,9 +337,23 @@ struct MCState * setupMCS(struct MCInput inp) {
     strncpy(mcs->ensembleStr,inp.ensembleStr,80);
     if ( strncmp(mcs->ensembleStr,"NPT",80) == 0 ) {
         printf("ENSEMBLE = NPT\n");
+        mcs->P      = inp.P;
+        mcs->numTrialTypes = inp.N+1;
+        mcs->relaxFlag  = inp.relaxFlag;
+        if ( mcs->isRestart && mcs->relaxFlag ) {
+            printf("WARNING: running restart job with volume relaxation. Make sure you\n"
+                   "know what the heck you are doing!\n\n");
+        }
     }
     else if ( strncmp(mcs->ensembleStr,"NLT",80) == 0 ) {
         printf("ENSEMBLE = NLT\n");
+        mcs->l      = inp.L;
+        mcs->numTrialTypes = inp.N;
+        if ( inp.relaxFlag ) {
+            printf("This is an NLT ensemble simulation. Ignoring requested "
+                   "volume relaxation.\n");
+        }
+        mcs->relaxFlag = 0;
     }
     else {
         printf("FATAL ERROR: Unknown ensemble.\nABORTING SIMULATION\n\n");
@@ -1593,25 +1602,38 @@ int Step(struct MCState *mcs) {
   #pragma omp barrier
   #pragma omp single
   {
-  mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->N+1);
+  mcs->nm = gsl_rng_uniform_int(mcs->rangen,mcs->numTrialTypes);
   mcs->rn = gsl_rng_uniform(mcs->rangen);
   }
   #pragma omp barrier
 
-  // nm is the number of the particle selected to try displacing. If its
-  //  number exceeds that of the highest-numbered particle, that means
-  //  do a volume change trial.
-  if (mcs->nm < mcs->N) {
-    // Do a trial displacement on particle nm
-   //printf("Displacing!  ************ *   * *   *   *   *   *\n");
+  //  // nm is the number of the particle selected to try displacing. If its
+  //  //  number exceeds that of the highest-numbered particle, that means
+  //  //  do a volume change trial.
+  //  if (mcs->nm < mcs->) {
+  //    // Do a trial displacement on particle nm
+  //   //printf("Displacing!  ************ *   * *   *   *   *   *\n");
+  //    qad(mcs,&(mcs->nm),&(mcs->rn));
+  //  }
+  //  else {
+  //    // Do a volume change trial
+  //    // printf("qav-ing!  ************ *   * *   *   *   *   *\n");
+  //    qav(mcs);
+  //  }
+
+  // For now, assume 0 < nm < N means displace particle nm; nm == N
+  //   means try length change; and nm > N is an error.
+  if ( mcs->nm < mcs->N ) {
     qad(mcs,&(mcs->nm),&(mcs->rn));
   }
-  else {
-    // Do a volume change trial
-    // printf("qav-ing!  ************ *   * *   *   *   *   *\n");
+  else if ( mcs->nm == mcs->N ) {
     qav(mcs);
   }
-  
+  else {
+    printf("ERROR: unknown trial type number %lu at jmmMCState.c:1624\n",
+             mcs->nm);
+  }
+
   // At appropriate steps, double-check that the energy has not been
   //  corrupted.  (Useful when qad and qav are being used because they
   //  calculate the energy based on the change in energy from the 
