@@ -190,10 +190,10 @@ int printMCP(struct MCState *mcs1) {
             printf("N: %lu\nP: %.5G\nT: %.5G\n",mcs1->N,mcs1->P,mcs1->T);
 	}
         else if ( strncmp(mcs1->ensembleStr,"NLT",10) == 0 ) {
-            printf("N: %lu\nL: %.5G\nT: %.5G\n",mcs1->N,mcs1->L,mcs1->T);
+            printf("N: %lu\nL: %.5G\nT: %.5G\n",mcs1->N,mcs1->l,mcs1->T);
         }
         else {
-            print("Unknown ensemble!\n");
+            printf("Unknown ensemble!\n");
         }
         printf("Potential: %s\n",mcs1->potStr);
         printf("Potential cut-off: %.5G\n",mcs1->potCutOff);
@@ -336,6 +336,18 @@ struct MCState * setupMCS(struct MCInput inp) {
     }
     else {
         printf("FATAL ERROR: Unknown potential.\nABORTING SIMULATION\n\n");
+        return NULL;
+    }
+    
+    strncpy(mcs->ensembleStr,inp.ensembleStr,80);
+    if ( strncmp(mcs->ensembleStr,"NPT",80) == 0 ) {
+        printf("ENSEMBLE = NPT\n");
+    }
+    else if ( strncmp(mcs->ensembleStr,"NLT",80) == 0 ) {
+        printf("ENSEMBLE = NLT\n");
+    }
+    else {
+        printf("FATAL ERROR: Unknown ensemble.\nABORTING SIMULATION\n\n");
         return NULL;
     }
     

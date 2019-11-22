@@ -28,7 +28,7 @@ struct MCInput readInput(char *fstr) {
 			17. Number of bins for g(x)
 			18. g(x) print interval
 			19. Seed (suggested use: date +'%s')
-                        20. Ensemble (NPT or NVT)
+                        20. Ensemble (NPT or NLT)
                         
 		Identified future extensions:
 
@@ -187,7 +187,7 @@ struct MCInput readInput(char *fstr) {
             const int ensembleOptsLen = 2;
             
             // List of possible ensemble keywords
-            const char *ensembleOpts[] = {"NPT","NVT"};
+            const char *ensembleOpts[] = {"NPT","NLT"};
             int ensembleFlag;
             
             // Copy up to 80 characters from tokens[1] to inp.ensembleStr
