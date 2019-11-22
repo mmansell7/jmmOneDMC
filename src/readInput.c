@@ -28,7 +28,8 @@ struct MCInput readInput(char *fstr) {
 			17. Number of bins for g(x)
 			18. g(x) print interval
 			19. Seed (suggested use: date +'%s')
-
+                        20. Ensemble (NPT or NVT)
+                        
 		Identified future extensions:
 
 	*/
@@ -177,6 +178,34 @@ struct MCInput readInput(char *fstr) {
         
         else if ( strncmp(tokens[0],"RELAX",10) == 0 ) {
             inp.relaxFlag = 1;
+        }
+        
+        else if ( strncmp(tokens[0],"ENSEMBLE",10) == 0 ) {
+            const int ensembleOptsLen = 2;
+            
+            // List of possible ensemble keywords
+            const char *ensembleOpts[] = {"NPT","NVT"};
+            int ensembleFlag;
+            
+            // Copy up to 80 characters from tokens[1] to inp.ensembleStr
+            strncpy(inp.ensembleStr,tokens[1],80);
+              
+            // Loop through ensembles, confirming that the requested ensemble
+            // keyword is among the allowed values, or handling the situation
+            // if the keyword is not among the accepted values.
+            ensembleFlag = -1;
+            for (ii = 0; ii < ensembleOptsLen; ii++) {
+                if ( strncmp(inp.ensembleStr,ensembleOpts[ii],20) == 0 ) {
+                    ensembleFlag = ii;
+                    break;
+                }
+            }
+            if ( ensembleFlag < 0 ) {
+                printf("Unknown ensemble type requested (%s). Using NPT "
+                          "ensemble.\n",tokens[1]);
+                strncpy(inp.ensembleStr,"NPT",80);
+            }
+            
         }
         
         else {
