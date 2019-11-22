@@ -72,7 +72,7 @@ struct MCInput readInput(char *fstr) {
         }
         
         else if ( strncmp(tokens[0],"N",10) == 0 ) {
-	    inp.N = (unsigned long int) strtol(tokens[1],NULL,10);
+	    inp.N = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"P",10) == 0 ) {
@@ -88,11 +88,11 @@ struct MCInput readInput(char *fstr) {
         }
 
         else if ( strncmp(tokens[0],"NBN",10) == 0 ) {
-            inp.nbn = (int) strtol(tokens[1],NULL,10);
+            inp.nbn = (int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"NUMSTEPS",10) == 0 ) {
-            inp.ns = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.ns = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"POT",10) == 0 ) {
@@ -128,19 +128,19 @@ struct MCInput readInput(char *fstr) {
         }
        
         else if ( strncmp(tokens[0],"CPI",10) == 0 ) {
-            inp.cpi = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.cpi = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
        
         else if ( strncmp(tokens[0],"TPI",10) == 0 ) {
-            inp.tpi = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.tpi = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
        
         else if ( strncmp(tokens[0],"GPI",10) == 0 ) {
-            inp.gpi = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.gpi = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
        
         else if ( strncmp(tokens[0],"RHOPI",10) == 0 ) {
-            inp.rhopi = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.rhopi = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
        
         else if ( strncmp(tokens[0],"RBW",10) == 0 ) {
@@ -148,7 +148,7 @@ struct MCInput readInput(char *fstr) {
         }
        
         else if ( strncmp(tokens[0],"RHONB",10) == 0 ) {
-            inp.rhonb = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.rhonb = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
        
         else if ( strncmp(tokens[0],"GBW",10) == 0 ) {
@@ -156,7 +156,7 @@ struct MCInput readInput(char *fstr) {
         }
        
         else if ( strncmp(tokens[0],"GNB",10) == 0 ) {
-            inp.gnb = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.gnb = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
        
         else if ( strncmp(tokens[0],"GSW",10) == 0 ) {
@@ -164,23 +164,23 @@ struct MCInput readInput(char *fstr) {
         }
        
         else if ( strncmp(tokens[0],"GNS",10) == 0 ) {
-            inp.gns = (int) strtol(tokens[1],NULL,10);
+            inp.gns = (int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"SEED",10) == 0 ) {
-            inp.seed = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.seed = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"ENGCHECK",10) == 0 ) {
-            inp.eci = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.eci = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"DADJ",10) == 0 ) {
-            inp.mdai = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.mdai = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"VADJ",10) == 0 ) {
-            inp.mvai = (unsigned long int) strtol(tokens[1],NULL,10);
+            inp.mvai = (unsigned long int) ( (double) strtod(tokens[1],NULL) );
         }
         
         else if ( strncmp(tokens[0],"RELAX",10) == 0 ) {
