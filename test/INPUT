@@ -1,0 +1,23 @@
+N          100
+P          0.5
+T          0.6
+RELAX
+NUMSTEPS   200
+POT        LJcut 5.0
+NBN        -1
+MAXSTEP    0.1
+MAXDV      2.0
+CPI        50000000
+TPI        1
+RBW        0.05
+RHONB      1000
+RHOPI      50000000
+GSW        5.0
+GNS        10
+GBW        0.05
+GNB        1000
+GPI        50000000
+SEED       774281
+ENGCHECK   1
+DADJ       10000000
+VADJ       10000000
