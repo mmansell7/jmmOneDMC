@@ -471,13 +471,21 @@ struct MCState * setupMCS(struct MCInput inp) {
         mcs->Vir        = 10E10;
         mcs->md         = 0;
         
-        // Initialize box size based on number of particles.
-        mcs->l          = mcs->N;
+        // If this ensemble allows the box size to fluctuate, then
+        // initialize box size based on number of particles.
+        const char *fluctuatingLEnsembleStrs[] = {"NPT"};
+        
+        for ( ii = 0; ii < 1; ii++ ) {
+            if ( strncmp(mcs->ensembleStr,fluctuatingLEnsembleStrs[ii],80) == 0 ) {
+                mcs->l = mcs->N;
+            }
+        }
 
         // Initial values for particle positions are calculated by
-        //  the distributing the particles evenly in the box.
+        //  distributing the particles evenly in the box.
         for (ii = 0; ii < mcs->N; ii++) {
-            mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
+            //mcs->r[ii]        = -mcs->l/2 + (ii+0.5)*(mcs->l/mcs->N);
+            mcs->r[ii]        = ( (ii+0.5)/mcs->N - 0.5) * mcs->l;
         }
         
         // Print headers to output files.
