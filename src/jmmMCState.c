@@ -1116,7 +1116,7 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
                                 mcs->virijTrial[ind]   = phiij[1];
 				mcs->vir12ijTrial[ind] = phiij[3];
 				mcs->vir6ijTrial[ind]  = phiij[5];
-			        //printf("NEIGHBOR!!!! ii: %lu  dj: %lu  rij1: %.5G  eijTrial: %.5G  \n",ii,dj,rij1,mcs->eijTrial[ind]);
+			        //printf("NEIGHBOR!!!! ii: %lu  dj: %lu  rij1: %.5G  eijTrial: %.5G  virijTrial: %.5G \n",ii,dj,rij1,mcs->eijTrial[ind],mcs->virijTrial[ind]);
                                 //fflush(stdout);
 			}
 			mcsdE     = mcsdE     - mcs->eij[ind]     + mcs->eijTrial[ind];
@@ -1233,9 +1233,10 @@ int qad2(struct MCState *mcs,unsigned long int *nm, double *d) {
 		if (mcs->dE <= 0 || mcs->bf > ran) {
 			#pragma omp single
 			{
-			//printf("At mid-qad (%lu %.5G->(%.5G)->%.5G), E = %.7G, dE = %.7G\nE should = %.5G\n",
+			//printf("At mid-qad (%lu %.5G->(%.5G)->%.5G), E = %.7G, dE = %.7G\nE should = %.5G\n"
+                        //        ", Vir = %.7G, dVir = %.7G\nVir should = %.5G\n",
                         //         mcs->nm,mcs->r[mcs->nm],mcs->md,mcs->rTrial[mcs->nm],mcs->E,
-                        //         mcsdE,mcs->E + mcsdE);
+                        //         mcsdE,mcs->E + mcsdE,mcs->Vir,mcs->dVir,mcs->Vir + mcsdVir);
 			mcs->dAcc[0]++;
 			mcs->E      += mcs->dE;
 			mcs->E12    += mcs->dE12;
