@@ -6,8 +6,8 @@
 #include "jmmMCState.h"
 
 // Pair energy is always returned as the first element of
-//  phi, and pair configurational pressure is always 
-//  returned as the second.
+//  phi, pair virial as the second, and pair hypervirial
+//  as the third..
 //
 // Generally, param[0] determines whether the pressure
 //  contribution is calculated (0: no, 1: yes), and param[1]
@@ -15,7 +15,7 @@
 //  pressure contributions.
 
 
-void phiLJcut(double *d, double cutOff, void *params, double phi[6]) {
+void phiLJcut(double *d, double cutOff, void *params, double *phi) {
     // Compute energy and pressure contributions of a single LJ pair
     //   d is a pointer to the magnitude of the vector from particle i to particle j
     //     in reduced LJ units
@@ -25,14 +25,22 @@ void phiLJcut(double *d, double cutOff, void *params, double phi[6]) {
     //   phi is an array of doubles.
     //     phi[0]: total pair energy (LJ units)
     //     phi[1]: total pair virial (LJ units)
-    //     phi[2]: repulsive part of the pair energy (1/rij**12, in LJ units)
-    //     phi[3]: repulsive part of the pair virial (12/rij**12, in LJ units)
-    //     phi[4]: negative of the attractive part of the pair energy (1/rij**6, in LJ units)
-    //     phi[5]: negative of the attractive part of the pair virial (6/rij**6, in LJ units)
+    //     phi[2]: repulsive part of the pair energy (4/rij**12, in LJ units)
+    //     phi[3]: repulsive part of the pair virial (48/rij**12, in LJ units)
+    //     phi[4]: negative of the attractive part of the pair energy
+    //               (4/rij**6, in LJ units)
+    //     phi[5]: negative of the attractive part of the pair virial
+    //               (24/rij**6, in LJ units)
+    //     phi[6]: total pair hypervirial (LJ units)
+    //     phi[7]: repulsive part of the pair hypervirial
+    //               (576/rij**12, in LJ units)
+    //     phi[8]: negative of the attractive part of the pair hypervirial
+    //               (144/rij**6, in LJ units)
     double rij1,rij3,rij6,rij12;
     double phitot,phi6,phi12;
     double l;
-    double virtot,vir6,vir12;
+    double virtot,vir6,vir12;       // Components of the virial
+    double hvtot,hv6,hv12;          // Componnent of the hypervirial
     double *p = (double *) params;
     
     rij1  = *d;             // Separation distance between two particles
@@ -48,15 +56,21 @@ void phiLJcut(double *d, double cutOff, void *params, double phi[6]) {
 
       // p[0] > 0 indicates the virial contributions should be calculated
       if ( p[0] > 0.1 ) {
-        l      = p[1];
-        vir6   = 24/l*rij6;
-        vir12  = 48/l*rij12;
+        //l      = p[1];
+        vir6   = 24*rij6;
+        vir12  = 48*rij12;
         virtot = vir12 - vir6;
+        hv6    = 144*rij6;
+        hv12   = 576*rij12;
+        hvtot  = hv12-hv6;
       }
       else {
         vir6   = 0;
         vir12  = 0;
         virtot = 0;
+        hv6    = 0;
+        hv12   = 0;
+        hvtot  = 0;
       }
     }
     // if rij is beyond the cut-off length
@@ -67,6 +81,9 @@ void phiLJcut(double *d, double cutOff, void *params, double phi[6]) {
       vir6   = 0;
       vir12  = 0;
       virtot = 0;
+      hv6    = 0;
+      hv12   = 0;
+      hvtot  = 0;
     }
    
     phi[0] = phitot;
@@ -76,16 +93,20 @@ void phiLJcut(double *d, double cutOff, void *params, double phi[6]) {
     phi[1] = virtot;
     phi[3] = vir12;
     phi[5] = vir6;
+
+    phi[6] = hvtot;
+    phi[7] = hv12;
+    phi[8] = hv6;
 }
 
 
-void phiLJ(double *d, void *params, double phi[6]) {
+void phiLJ(double *d, void *params, double *phi) {
     // Wrapper on phiLJcut, ensuring cut-off length is very large
     phiLJcut(d, INFINITY, params, phi);
 }
 
 
-void phiHarmoniccut(double *d, double cutOff, void *params, double phi[6]) {
+void phiHarmoniccut(double *d, double cutOff, void *params, double *phi) {
     double rijm; // Difference of rij from the minimum-energy separation
     double l;
     //double *phi = (double *) malloc(6*sizeof(double));
@@ -112,7 +133,7 @@ void phiHarmoniccut(double *d, double cutOff, void *params, double phi[6]) {
 }
 
 
-void phiHarmonic(double *d, void *params, double phi[6]) {
+void phiHarmonic(double *d, void *params, double *phi) {
     // Wrapper to phiHarmoniccut
     phiHarmoniccut(d, INFINITY, params, phi);
 }
