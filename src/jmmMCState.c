@@ -114,11 +114,12 @@ struct MCState {
   double rhoSysSA;                 // rhoSys^2 accumulator
   double lA;                       // l accumulator
   double lSA;                      // l^2 accumulator
-  double EA;                       // E accumulator
-  double ESA;                      // E^2 accumulator
+  double EA;                       // E (configuration) accumulator
+  double ESA;                      // E^2 (configurational) accumulator
   double lEA;                      // l*E accumulator
   double VirA;                     // Vir accumulator
   double VirSA;                    // Vir^2 accumulator
+  double EVirA;                    // Econf*virial accumulator
   double HVA;                      // Hypervirial accumulator
   double HVSA;                     // Hypervirial^2 accumulator
   double rbw;                      // rho(r) bin width
@@ -460,8 +461,9 @@ struct MCState * setupMCS(struct MCInput inp) {
     mcs->lEA        = 0;
     mcs->VirA       = 0;
     mcs->VirSA      = 0;
+    mcs->EVirA      = 0;
     mcs->HVA        = 0;
-    mcs->HV2A       = 0;
+    mcs->HVSA       = 0;
 
     mcs->dAcc[0]    = 0;
     mcs->dAcc[1]    = 0;
@@ -540,8 +542,10 @@ struct MCState * setupMCS(struct MCInput inp) {
         }
         
         // Print headers to output files.
-        fprintf(mcs->tf,"Step     Econf  Econf2   L     L2     LEconf  rho     rho2    Virial  Virial2  HV  HV2\n");
-        
+        //fprintf(mcs->tf,"Step     Econf  Econf2   L     L2     LEconf  rho     rho2    Virial  Virial2  HV  HV2\n");
+        fprintf(mcs->tf,"Step    Econf           Econf2          L       L2  " \
+            "    LEconf          rho             rho2            Virial      " \
+            "   Virial2         EconfVir        HV              HV2 \n");
     }
     
     // If this is a restart run, read info from data files to re-initialize
@@ -1870,9 +1874,9 @@ int isMaxDVAdjust(struct MCState *mcs) {
 
 // Print thermodynamic properties, averaged over thermo block
 int printThermo(struct MCState *mcs) {
-	double rhoSysM,rhoSysSM,lM,lSM,EM,ESM,lEM,VirM,VirSM,HVM,HVSM;
+	double rhoSysM,rhoSysSM,lM,lSM,EM,ESM,lEM,VirM,VirSM,EVirM,HVM,HVSM;
 	unsigned long int ss;
-
+        
 	ss = mcs->sn - mcs->sltp;
 
 	rhoSysM        = mcs->rhoSysA/ss;
@@ -1884,11 +1888,14 @@ int printThermo(struct MCState *mcs) {
         lEM            = mcs->lEA/ss;
 	VirM           = mcs->VirA/ss;
 	VirSM          = mcs->VirSA/ss;
+        EVirM          = mcs->EVirA/ss;
 	HVM            = mcs->HVA/ss;
         HVSM           = mcs->HVSA/ss;
 
         
-        fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,lEM,rhoSysM,rhoSysSM,VirM,VirSM,HVM,HVSM);
+        fprintf(mcs->tf,"%lu\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G\t%.8G" \
+                 "\t%.8G\t%.8G\t%.8G\t%.8G\n",mcs->sn,EM,ESM,lM,lSM,lEM, \
+                 rhoSysM,rhoSysSM,VirM,VirSM,EVirM,HVM,HVSM);
 	fflush(mcs->tf);
         printf("%lu  %.8G  %.8G  %.8G  %.8G\n",mcs->sn,mcs->E,mcs->l,mcs->Vir,mcs->HV);
         fflush(stdout);
@@ -1901,6 +1908,7 @@ int printThermo(struct MCState *mcs) {
         mcs->lEA       = 0;
 	mcs->VirA      = 0;
 	mcs->VirSA     = 0;
+        mcs->EVirA     = 0;
 	mcs->HVA       = 0;
 	mcs->HVSA      = 0;
 	mcs->sltp      = mcs->sn;
@@ -1924,6 +1932,7 @@ int updateThermo(struct MCState *mcs) {
     mcs->lEA      = mcs->lEA + mcs->l*mcs->E; 
     mcs->VirA     = mcs->VirA + mcs->Vir; 
     mcs->VirSA    = mcs->VirSA + mcs->Vir*mcs->Vir;
+    mcs->EVirA    = mcs->EVirA + mcs->E*mcs->Vir; 
     mcs->HVA      = mcs->HVA + mcs->HV; 
     mcs->HVSA     = mcs->HVSA + mcs->HV*mcs->HV;
 
@@ -2162,8 +2171,8 @@ int fav(struct MCState *mcs) {
 	}
 	
 	#pragma omp for private(ii,jj,ind,rij1a,rij3a,rij6a,rij7a,rij12a,rij13a) \
-             reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial \
-                          mcsHVTrial,mcsHV12Trial,mcsHV6Trial))
+             reduction (+:mcsETrial,mcsE12Trial,mcsE6Trial,mcsVirTrial,mcsVir12Trial,mcsVir6Trial, \
+                          mcsHVTrial,mcsHV12Trial,mcsHV6Trial)
 	for (ind = 0; ind < mcs->numPairs; ind++) {
 		ii            = mcs->iii[ind];
 		jj            = mcs->jjj[ind];
