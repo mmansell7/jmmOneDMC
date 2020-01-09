@@ -1,13 +1,14 @@
-N          100
-P          0.5
-T          0.6
+ENSEMBLE   NLT
+N          2000
+L          4000
+T          0.5
 RELAX
-NUMSTEPS   200
+NUMSTEPS   1000
 POT        LJcut 5.0
 NBN        -1
 MAXSTEP    0.1
 MAXDV      2.0
-CPI        50000000
+CPI        1
 TPI        1
 RBW        0.05
 RHONB      1000
