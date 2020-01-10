@@ -4,6 +4,7 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include "jmmMCState.h"
+#include "pot.h"
 
 // Pair energy is always returned as the first element of
 //  phi, pair virial as the second, and pair hypervirial
@@ -100,11 +101,11 @@ void phiLJcut(double *d, double cutOff, void *params, double *phi) {
 }
 
 
-void phiLJ(double *d, void *params, double *phi) {
+void phiLJinfcutoff(double *d, double cutOff, void *params, double *phi) {
     // Wrapper on phiLJcut, ensuring cut-off length is very large
+    //   Ignores the value of cutOff supplied in the arguments above.
     phiLJcut(d, INFINITY, params, phi);
 }
-
 
 void phiHarmoniccut(double *d, double cutOff, void *params, double *phi) {
     double rijm; // Difference of rij from the minimum-energy separation
@@ -133,8 +134,9 @@ void phiHarmoniccut(double *d, double cutOff, void *params, double *phi) {
 }
 
 
-void phiHarmonic(double *d, void *params, double *phi) {
+void phiHarmonic(double *d, double cutOff, void *params, double *phi) {
     // Wrapper to phiHarmoniccut
+    //   Ignores the value of cutOff supplied in the arguments above.
     phiHarmoniccut(d, INFINITY, params, phi);
 }
 

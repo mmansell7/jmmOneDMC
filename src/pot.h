@@ -1,5 +1,5 @@
 void phiLJcut(double *d, double cutOff, void *params, double *phiij);
-void phiLJ(double *d, double cutOff, void *params, double *phiij);
+void phiLJinfcutoff(double *d, double cutoff, void *params, double *phiij);
 void phiHarmonic(double *d, double cutOff, void *params, double *phiij);
 void phiHarmoniccut(double *d, double cutOff, void *params, double *phiij);
 //int qavLJ(struct MCState *mcs);

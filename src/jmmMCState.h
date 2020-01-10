@@ -3,7 +3,7 @@
 extern double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
 
 struct MCState;
-struct MCState * setupMCS();
+struct MCState * setupMCS(struct MCInput inp);
 void freeMCS(struct MCState *);
 void printStep(struct MCState *);
 int printMCP(struct MCState *mcs1);
@@ -39,7 +39,12 @@ int relaxVolume(struct MCState *mcs);
 unsigned long int getStepNum(struct MCState *mcs);
 double calculateEnergyOfTrialVolumeChange(struct MCState *mcs,double dl);
 int moveVolume(struct MCState *mcs,double l);
+int getRelaxFlag(struct MCState *mcs);
 bool getRestartFlag(struct MCState *mcs);
+int maxDisAdjust(struct MCState *mcs);
+int maxDVAdjust(struct MCState *mcs);
+int printE(struct MCState *mcs);
+int printAcc(struct MCState *mcs);
 
 struct MCInput {
 
@@ -71,6 +76,10 @@ struct MCInput {
   double gbw;
   int gns;
   int nbn;
+
+  int numComputes;
+  char computeStrs[100][30][30]; // computeStr[i][j] = 
+                                 //   ith compute, jth argument
 };
 
 

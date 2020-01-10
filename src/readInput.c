@@ -3,7 +3,7 @@
 #include <string.h>
 #include "jmmMCState.h"
 #include "readInput.h"
-
+#include <math.h>
 
 struct MCInput readInput(char *fstr) {
 
@@ -34,14 +34,14 @@ struct MCInput readInput(char *fstr) {
 
 	*/
 	
-    struct MCInput inp = {.isRestart = false};
+    struct MCInput inp = {.isRestart = false,.numComputes = 0};
     FILE *infile = fopen(fstr,"r");
     char line[100];
     const char s[8] = "[ \t\n]";
     const int maxNumTokens = 20;
     char *tokens[maxNumTokens];
-    int ii, counter;
-    
+    int ii, jj, counter;
+
     if (infile==NULL)
     {
         printf("FATAL ERROR: INPUT not found.");
@@ -116,7 +116,12 @@ struct MCInput readInput(char *fstr) {
                 strncpy(inp.potStr,"LJ",80);
             }
             
-            inp.potCutOff = strtod(tokens[2],NULL);
+            if (tokens[2]) {
+                inp.potCutOff = strtod(tokens[2],NULL);
+            }
+            else {
+                inp.potCutOff = INFINITY;
+            }
         }
         
         else if ( strncmp(tokens[0],"MAXSTEP",10) == 0 ) {
@@ -213,7 +218,14 @@ struct MCInput readInput(char *fstr) {
                 strncpy(inp.ensembleStr,"NPT",80);
             }
         }
-        
+
+        else if ( strncmp(tokens[0],"COMPUTE",10) == 0 || 
+                     strncmp(tokens[0],"compute",10) == 0 ) {
+            inp.numComputes++;
+            for (ii = 1; ii < counter + 1; ii++) {
+                strncpy(inp.computeStrs[inp.numComputes][ii-1],tokens[ii],30);
+            }
+        }
         else {
             printf("Property command %s not understood.\n",tokens[0]);
         }
@@ -226,7 +238,9 @@ struct MCInput readInput(char *fstr) {
 
 
 int printInput(struct MCInput inp) {
-
+    
+    int ii,jj;
+    
     printf("N = %lu\n",inp.N);
     if ( strncmp(inp.ensembleStr,"NPT",80) == 0) {
         printf("P = %.5G\n",inp.P);
@@ -260,6 +274,13 @@ int printInput(struct MCInput inp) {
     printf("GNS = %d\n",inp.gns);
     printf("SEED = %lu\n",inp.seed);
     printf("RELAXATION FLAG = %d\n",inp.relaxFlag);
-
+    printf("computes = \n");
+    for ( ii = 0; ii < inp.numComputes; ii++ ) {
+        printf("\t");
+        for ( jj = 0; jj < 20; jj++ ) {
+            printf("%s ",inp.computeStrs[ii][jj]);
+        }
+        printf("\n");
+   }
     return 0;
 }
