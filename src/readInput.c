@@ -55,7 +55,7 @@ struct MCInput readInput(char *fstr) {
         
         counter = 0;
         tokens[counter] = strtok(line,s);
-        while( tokens[counter] != NULL ) {
+        while( tokens[counter] ) {
             counter++;
             tokens[counter] = strtok(NULL,s);
         }
@@ -223,7 +223,13 @@ struct MCInput readInput(char *fstr) {
                      strncmp(tokens[0],"compute",10) == 0 ) {
             inp.numComputes++;
             for (ii = 1; ii < counter + 1; ii++) {
-                strncpy(inp.computeStrs[inp.numComputes][ii-1],tokens[ii],30);
+                if ( tokens[ii] ) {
+                    strncpy(inp.computeStrs[inp.numComputes-1][ii-1],tokens[ii],30);
+                }
+                else {
+                    // inp.computeStrs[inp.numComputes-1][ii-1] = NULL;
+                    strncpy(inp.computeStrs[inp.numComputes-1][ii-1],"\0",30);
+                }
             }
         }
         else {
