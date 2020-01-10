@@ -7,6 +7,8 @@
 #include "pot.h"
 #include "stdbool.h"
 #include "compute.h"
+#include <vector>
+#include <iostream>
 
 // Some file-global variables (available to all functions defined in this
 //  file, but not to functions defined in other files) are necessary
@@ -203,7 +205,8 @@ struct MCState {
   int (*qav)(struct MCState *);    // Pointer to a potential-specific, quicker,
                                    //   volume change trial function
 
-  Compute *computes;               // Array of computes
+  unsigned int numComputes;        // Number of computes
+  std::vector<Compute*> computes;  // Vector of pointers to computes
 
 };
 
@@ -242,6 +245,12 @@ int printMCP(struct MCState *mcs1) {
         printf("g(x) print interval: %lu\n\nSeed: %lu\n\n",mcs1->gpi,mcs1->seed);
         printf("Adjust max. displacement every %lu steps.\n",mcs1->mdai);
 	printf("Adjust max. volume change every %lu steps.\n",mcs1->mvai);
+
+        printf("Number of computes: %d\nComputes:\n",mcs1->numComputes);
+        for ( int ii = 0; ii < mcs1->numComputes; ii++ ) {
+            std::cout << mcs1->computes[ii]->str << std::endl;
+        }
+
 	fflush(stdout);
 	
 	return 0;
@@ -413,6 +422,11 @@ struct MCState * setupMCS(struct MCInput inp) {
     else {
         printf("FATAL ERROR: Unknown ensemble.\nABORTING SIMULATION\n\n");
         return NULL;
+    }
+    
+    mcs->numComputes = inp.numComputes;
+    for ( ii = 0; ii < mcs->numComputes; ii++ ) {
+        mcs->computes.push_back( new Compute(inp.computeStrs[ii]) );
     }
     
     printMCP(mcs);

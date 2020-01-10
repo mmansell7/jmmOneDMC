@@ -17,6 +17,8 @@
 #define COMPUTE_H
 
 #include <stdbool.h>
+#include <vector>
+#include <string>
 
 class Compute {
   public:
@@ -71,7 +73,8 @@ class Compute {
    int maxtime;        // max # of entries time list can hold
    unsigned long int *tlist;      // list of timesteps the Compute is called on
 
-
+   std::string str;
+   std::vector<std::string> strs;
 
   int invoked_flag;       // non-zero if invoked or accessed this step, 0 if not
   unsigned long int invoked_scalar;  // last timestep on which compute_scalar() was invoked
@@ -88,11 +91,13 @@ class Compute {
 
   int copymode;
 
-  Compute(char **);
+  Compute(char[30][30]);
+  Compute(char**);
   virtual ~Compute();
   void modify_params(int, char **);
-
-  virtual void init() = 0;
+  
+  
+  // virtual void init() = 0;
   virtual void setup() {}
   virtual double compute_scalar() {return 0.0;}
   virtual void compute_vector() {}

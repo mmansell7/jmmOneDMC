@@ -34,14 +34,20 @@ struct MCInput readInput(char *fstr) {
 
 	*/
 	
-    struct MCInput inp = {.isRestart = false,.numComputes = 0};
+    // struct MCInput inp = {.isRestart = false}; // .numComputes = 0};
+    struct MCInput inp;
+    inp.isRestart = false;
+    inp.numComputes = 0;
     FILE *infile = fopen(fstr,"r");
     char line[100];
     const char s[8] = "[ \t\n]";
-    const int maxNumTokens = 20;
+    const int maxNumTokens = 30;
     char *tokens[maxNumTokens];
     int ii, jj, counter;
-
+    char anemptychararray[30][30];
+    char *charptr;
+    char **charptrptr;
+    
     if (infile==NULL)
     {
         printf("FATAL ERROR: INPUT not found.");
@@ -221,16 +227,29 @@ struct MCInput readInput(char *fstr) {
 
         else if ( strncmp(tokens[0],"COMPUTE",10) == 0 || 
                      strncmp(tokens[0],"compute",10) == 0 ) {
-            inp.numComputes++;
-            for (ii = 1; ii < counter + 1; ii++) {
-                if ( tokens[ii] ) {
-                    strncpy(inp.computeStrs[inp.numComputes-1][ii-1],tokens[ii],30);
-                }
-                else {
-                    // inp.computeStrs[inp.numComputes-1][ii-1] = NULL;
-                    strncpy(inp.computeStrs[inp.numComputes-1][ii-1],"\0",30);
-                }
+            
+            charptrptr = new char*[30];
+            charptrptr[0] = new char[30*30];
+            for ( ii = 1; ii < 30; ii++ ) {
+                 charptrptr[ii] = charptrptr[ii-1] + 30;
             }
+            
+            inp.computeStrs.push_back(charptrptr);
+            // inp.computeStrs[inp.numComputes]
+            for ( ii = 1; ii < counter; ii++ ) {
+                strncpy(inp.computeStrs[inp.numComputes][ii-1],tokens[ii],30);
+            }
+            inp.numComputes++;
+            // inp.computeStrs.push_back( tokens);
+            // for (ii = 1; ii < counter + 1; ii++) {
+            //     if ( tokens[ii] ) {
+            //         strncpy(inp.computeStrs[inp.numComputes-1][ii-1],tokens[ii],30);
+            //     }
+            //     else {
+            //         // inp.computeStrs[inp.numComputes-1][ii-1] = NULL;
+            //         strncpy(inp.computeStrs[inp.numComputes-1][ii-1],"\0",30);
+            //     }
+            // }
         }
         else {
             printf("Property command %s not understood.\n",tokens[0]);

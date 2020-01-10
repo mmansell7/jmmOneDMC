@@ -20,15 +20,16 @@ henrun2 : henry2
 henrun3 : henry2
 	${EXE} > out.out
 
-debug : readInput.c readInput.h jmmMCState.c jmmMCState.h pot.c pot.h Main.c
-	 ${CChen} ${DEBUGflags} -c readInput.c
-	 ${CChen} ${DEBUGflags} -c jmmMCState.c
-	 ${CChen} ${DEBUGflags} -c pot.c
-	 ${CChen} ${DEBUGflags} -c Main.c
-	 ${CChen} ${DEBUGflags} Main.o jmmMCState.o readInput.o pot.o -o ${EXE}
+debug : readInput.c readInput.h jmmMCState.c jmmMCState.h pot.c pot.h Main.c compute.h compute.cpp
+	${CChen} ${DEBUGflags} -c readInput.c
+	${CChen} ${DEBUGflags} -c jmmMCState.c
+	${CChen} ${DEBUGflags} -c pot.c
+	${CChen} ${DEBUGflags} -c Main.c
+	${CChen} ${DEBUGflags} -c compute.cpp
+	${CChen} ${DEBUGflags} Main.o jmmMCState.o readInput.o pot.o compute.cpp -o ${EXE}
 
-henry2 : readInput jmmMCState_henry2 pot Main_henry2
-	${CChen} ${CFLAGShen} Main.o jmmMCState.o readInput.o pot.o -o ${EXE}
+henry2 : readInput jmmMCState_henry2 pot Main_henry2 compute
+	${CChen} ${CFLAGShen} Main.o jmmMCState.o readInput.o pot.o compute.o -o ${EXE}
 
 macbook : jmmMCState.o Main.o pot.o
 	${CCmac} ${CFLAGSmac} Main.o jmmMCState.o -o ${EXE}

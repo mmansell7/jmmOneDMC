@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <vector>
 
 extern double lRat1,lRat3,lRat6,lRat7,lRat12,lRat13;
 
@@ -78,7 +79,8 @@ struct MCInput {
   int nbn;
 
   int numComputes;
-  char computeStrs[100][30][30]; // computeStr[i][j] = 
+  // std::vector<char[30][30]> computeStrs;     // computeStr[i][j] = 
+  std::vector<char**> computeStrs;     // computeStr[i][j] = 
                                  //   ith compute, jth argument
 };
 
