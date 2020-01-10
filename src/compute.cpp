@@ -104,7 +104,7 @@ Compute::Compute(char **arg) :
   ii = 0;
   while ( arg[ii] && strncmp(arg[ii],"",30) ) {
     strs.push_back(std::string(arg[ii]));
-    str = str + " " + strs[ii];
+    str = str + strs[ii] + " ";
     ii++;
   }
   

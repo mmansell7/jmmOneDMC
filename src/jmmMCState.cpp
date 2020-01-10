@@ -248,7 +248,7 @@ int printMCP(struct MCState *mcs1) {
 
         printf("Number of computes: %d\nComputes:\n",mcs1->numComputes);
         for ( int ii = 0; ii < mcs1->numComputes; ii++ ) {
-            std::cout << mcs1->computes[ii]->str << std::endl;
+            std::cout << "  " << mcs1->computes[ii]->str << std::endl;
         }
 
 	fflush(stdout);
