@@ -1,8 +1,10 @@
+GIT_VERSION := "$(shell git describe --abbrev=40 --always)"
+
 CChen:=mpicxx
 CCmac:=/usr/local/bin/gcc-7
-CFLAGShen:=-Wall -fopenmp -lgsl -O3
-CFLAGSmac:=-Wall -fopenmp -lgsl -O3
-DEBUGflags:=-Wall -fopenmp -lgsl -g
+CFLAGShen:=-Wall -fopenmp -lgsl -O3 -D'VERSION=$(GIT_VERSION)'
+CFLAGSmac:=-Wall -fopenmp -lgsl -O3 -D'VERSION=$(GIT_VERSION)'
+DEBUGflags:=-Wall -fopenmp -lgsl -g -D'VERSION=$(GIT_VERSION)'
 EXE:=../bin/jmmOneDMC
 
 default:
@@ -20,11 +22,11 @@ henrun2 : henry2
 henrun3 : henry2
 	${EXE} > out.out
 
-debug : readInput.c readInput.h jmmMCState.c jmmMCState.h pot.c pot.h Main.c compute.h compute.cpp
-	${CChen} ${DEBUGflags} -c readInput.c
-	${CChen} ${DEBUGflags} -c jmmMCState.c
-	${CChen} ${DEBUGflags} -c pot.c
-	${CChen} ${DEBUGflags} -c Main.c
+debug : readInput.cpp readInput.h jmmMCState.cpp jmmMCState.h pot.cpp pot.h Main.cpp compute.h compute.cpp
+	${CChen} ${DEBUGflags} -c readInput.cpp
+	${CChen} ${DEBUGflags} -c jmmMCState.cpp
+	${CChen} ${DEBUGflags} -c pot.cpp
+	${CChen} ${DEBUGflags} -c Main.cpp
 	${CChen} ${DEBUGflags} -c compute.cpp
 	${CChen} ${DEBUGflags} Main.o jmmMCState.o readInput.o pot.o compute.cpp -o ${EXE}
 
@@ -34,27 +36,27 @@ henry2 : readInput jmmMCState_henry2 pot Main_henry2 compute
 macbook : jmmMCState.o Main.o pot.o
 	${CCmac} ${CFLAGSmac} Main.o jmmMCState.o -o ${EXE}
 
-Main_henry2 : Main.c jmmMCState.o readInput.o pot.o
-	${CChen} ${CFLAGShen} -c Main.c
+Main_henry2 : Main.cpp jmmMCState.o readInput.o pot.o
+	${CChen} ${CFLAGShen} -c Main.cpp
 
-Main_mac : Main.c jmmMCState.h
-	${CCmac} ${CFLAGSmac} -c Main.c
+Main_mac : Main.cpp jmmMCState.h
+	${CCmac} ${CFLAGSmac} -c Main.cpp
 
-jmmMCState_henry2 : jmmMCState.c jmmMCState.h
-	${CChen} ${CFLAGShen} -c jmmMCState.c
+jmmMCState_henry2 : jmmMCState.cpp jmmMCState.h
+	${CChen} ${CFLAGShen} -c jmmMCState.cpp
 
-jmmMCState_macbook : jmmMCState.c jmmMCState.h
-	${CCmac} ${CFLAGSmac} -c jmmMCState.c
+jmmMCState_macbook : jmmMCState.cpp jmmMCState.h
+	${CCmac} ${CFLAGSmac} -c jmmMCState.cpp
 
 testInput : readInput
 	${CChen} ${CFLAGShen} -c testInput.c
 	${CChen} ${CFLAGShen} testInput.o readInput.o jmmMCState.o -o testInput
 
-readInput : jmmMCState_henry2 readInput.c readInput.h
-	${CChen} ${CFLAGShen} -c readInput.c
+readInput : jmmMCState_henry2 readInput.cpp readInput.h
+	${CChen} ${CFLAGShen} -c readInput.cpp
 
-pot : pot.c pot.h
-	${CChen} ${CFLAGShen} -c pot.c
+pot : pot.cpp pot.h
+	${CChen} ${CFLAGShen} -c pot.cpp
 
 compute : compute.cpp compute.h
 	${CChen} ${CFLAGShen} -c compute.cpp

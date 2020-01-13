@@ -26,10 +26,11 @@ char *verDateStr = "11/23/2019";
 
 int main (int argc, char *argv[]) {
     
-    printf("########################################\n");
-    printf("#       Matt Mansell's MC Code         #\n");
-    printf("#      Version %s : %s      #\n",verStr,verDateStr);
-    printf("########################################\n\n");
+    printf("#####################################################\n");
+    printf("#             Matt Mansell's MC Code                #\n");
+    // printf("#      Version %s : %s      #\n",verStr,verDateStr);
+    printf("# Version: %s #\n", VERSION);
+    printf("#####################################################\n\n");
     
     // Read input from file INPUT
     struct MCInput inp = readInput("INPUT");
