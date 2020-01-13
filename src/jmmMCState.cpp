@@ -6,6 +6,9 @@
 #include "jmmMCState.h"
 #include "pot.h"
 #include "stdbool.h"
+#include "compute.h"
+#include <vector>
+#include <iostream>
 
 // Some file-global variables (available to all functions defined in this
 //  file, but not to functions defined in other files) are necessary
@@ -201,6 +204,10 @@ struct MCState {
      unsigned long int *nm,double *d);  // displacement trial function
   int (*qav)(struct MCState *);    // Pointer to a potential-specific, quicker,
                                    //   volume change trial function
+
+  unsigned int numComputes;        // Number of computes
+  std::vector<Compute*> computes;  // Vector of pointers to computes
+
 };
 
 
@@ -238,6 +245,12 @@ int printMCP(struct MCState *mcs1) {
         printf("g(x) print interval: %lu\n\nSeed: %lu\n\n",mcs1->gpi,mcs1->seed);
         printf("Adjust max. displacement every %lu steps.\n",mcs1->mdai);
 	printf("Adjust max. volume change every %lu steps.\n",mcs1->mvai);
+
+        printf("Number of computes: %d\nComputes:\n",mcs1->numComputes);
+        for ( int ii = 0; ii < mcs1->numComputes; ii++ ) {
+            std::cout << "  " << mcs1->computes[ii]->str << std::endl;
+        }
+
 	fflush(stdout);
 	
 	return 0;
@@ -275,10 +288,10 @@ struct MCState * setupMCS(struct MCInput inp) {
     mcs->gbw        = inp.gbw;
     mcs->gns        = inp.gns;
     mcs->seed       = inp.seed;
-    mcs->potCutOff  = inp.potCutOff;
     strncpy(mcs->potStr,inp.potStr,20);
     if ( strncmp(mcs->potStr,"LJ",10) == 0 ) {
-        mcs->phi        = &phiLJ;
+        mcs->phi        = &phiLJinfcutoff;
+        mcs->potCutOff  = INFINITY;
         mcs->qad        = &qad2;
         if ( mcs->nbn < 0 ) {
             mcs->qav    = &qavLJ;
@@ -316,6 +329,7 @@ struct MCState * setupMCS(struct MCInput inp) {
     }
     else if ( strncmp(mcs->potStr,"LJcut",10) == 0 ) {
         mcs->phi        = &phiLJcut;
+        mcs->potCutOff  = inp.potCutOff;
         mcs->qad        = &qad2;
         mcs->qav        = &fav;
         mcs->E6         = -5E10;
@@ -347,7 +361,8 @@ struct MCState * setupMCS(struct MCInput inp) {
         e6ijTest        = (double *) malloc(mcs->numPairs*sizeof(double));
     }
     else if ( strncmp(mcs->potStr,"HARMONIC",10) == 0 ) {
-        mcs->phi        = phiHarmonic;
+        mcs->phi        = &phiHarmoniccut;
+        mcs->potCutOff  = inp.potCutOff;
         mcs->qad        = &qad2;
         mcs->qav        = &fav;
         mcs->E6         = -5E10;
@@ -407,6 +422,11 @@ struct MCState * setupMCS(struct MCInput inp) {
     else {
         printf("FATAL ERROR: Unknown ensemble.\nABORTING SIMULATION\n\n");
         return NULL;
+    }
+    
+    mcs->numComputes = inp.numComputes;
+    for ( ii = 0; ii < mcs->numComputes; ii++ ) {
+        mcs->computes.push_back( new Compute(inp.computeStrs[ii]) );
     }
     
     printMCP(mcs);
